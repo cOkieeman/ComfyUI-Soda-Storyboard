@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import importlib
+import io
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,12 +13,18 @@ from typing import Any
 
 from PIL import Image
 
+from .bundles import (
+    EMPTY_FILE,
+    EMPTY_MOSS,
+    compile_result,
+    file_path,
+    list_files,
+    validate_moss,
+)
 from .core import (
-    NEGATIVE,
     content_hash,
     core,
     dumps,
-    info,
     inside,
     load,
     parse_info,
@@ -35,6 +43,7 @@ from .images import (
     paste_panel,
     tensor_images,
 )
+from .workspaces import import_hash, inspect_import
 
 
 def string(default: str = "", *, multiline: bool = False) -> tuple:
@@ -87,6 +96,7 @@ class SodaLoadStoryboardLoRA(SodaNode):
 
 
 class SodaLoadStoryboardPage(SodaNode):
+    DESCRIPTION = "进阶：链接本机分镜项目，保存分镜或角色卡后，下次运行自动重新编译。"
     RETURN_TYPES = ("STRING", "INT", "INT", "STRING", "STRING", "FLOAT", "STRING", "STRING")
     RETURN_NAMES = (
         "moss_json",
@@ -106,32 +116,112 @@ class SodaLoadStoryboardPage(SodaNode):
                 **page_inputs(),
                 "dialogue_mode": (["跟随页面", "MOSS 画字", "程序排字"],),
                 "slant_mode": (["cut", "hint"],),
+            },
+            "optional": {
+                "include_triggers": (
+                    "BOOLEAN",
+                    {"default": True, "label_on": "提示词包含触发词", "label_off": "不包含触发词"},
+                )
+            },
+        }
+
+    @classmethod
+    def IS_CHANGED(
+        cls,
+        project_dir: str,
+        page_id: str,
+        dialogue_mode: str = "跟随页面",
+        slant_mode: str = "cut",
+        include_triggers: bool = True,
+    ) -> str:
+        try:
+            return content_hash(project_dir, page_id, dialogue_mode, slant_mode, str(include_triggers))
+        except (OSError, ValueError):
+            # Cache probes during workflow restoration should never log errors.
+            return hashlib.sha256(
+                dumps([project_dir, page_id, dialogue_mode, slant_mode]).encode()
+            ).hexdigest()
+
+    def execute(
+        self,
+        project_dir: str,
+        page_id: str,
+        dialogue_mode: str = "跟随页面",
+        slant_mode: str = "cut",
+        include_triggers: bool = True,
+    ) -> tuple:
+        if not project_dir.strip() or not page_id.strip():
+            msg = "请先选择项目和页面"
+            raise ValueError(msg)
+        page, characters = load(project_dir, page_id, dialogue_mode)
+        return compile_result(page, characters, slant_mode, include_triggers=include_triggers)
+
+
+class SodaLoadStoryboard(SodaLoadStoryboardPage):
+    RETURN_TYPES = (*SodaLoadStoryboardPage.RETURN_TYPES, "IMAGE")
+    RETURN_NAMES = (*SodaLoadStoryboardPage.RETURN_NAMES, "draft")
+    DESCRIPTION = "上传分镜包、分镜单或 MOSS JSON，直接预览分镜图和最终提示词；LoRA 输出仅为建议。"
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict:
+        return {
+            "required": {
+                "filename": ([EMPTY_FILE, *list_files("storyboard")], {"default": EMPTY_FILE}),
+                "dialogue_mode": (["跟随页面", "MOSS 画字", "程序排字"],),
+                "slant_mode": (["cut", "hint"],),
+                "include_triggers": (
+                    "BOOLEAN",
+                    {"default": True, "label_on": "提示词包含触发词", "label_off": "不包含触发词"},
+                ),
+                "width": ("INT", {"default": 1024, "min": 16, "max": 16384, "step": 16}),
+                "height": ("INT", {"default": 1536, "min": 16, "max": 16384, "step": 16}),
             }
         }
 
     @classmethod
     def IS_CHANGED(
-        cls, project_dir: str, page_id: str, dialogue_mode: str = "跟随页面", slant_mode: str = "cut"
+        cls,
+        filename: str = EMPTY_FILE,
+        dialogue_mode: str = "跟随页面",
+        slant_mode: str = "cut",
+        include_triggers: bool = True,
+        width: int = 1024,
+        height: int = 1536,
     ) -> str:
-        return content_hash(project_dir, page_id, dialogue_mode, slant_mode)
+        return import_hash(
+            filename,
+            {
+                "dialogue_mode": dialogue_mode,
+                "slant_mode": slant_mode,
+                "include_triggers": include_triggers,
+                "width": width,
+                "height": height,
+            },
+        )
 
     def execute(
-        self, project_dir: str, page_id: str, dialogue_mode: str = "跟随页面", slant_mode: str = "cut"
-    ) -> tuple:
-        page, characters = load(project_dir, page_id, dialogue_mode)
-        compiled = core("compiler").compile_page(page, characters, slant_mode=slant_mode)
-        lora = core("production.api").select_lora(page, characters) or {}
-        width, height = page.canvas_size
-        return (
-            dumps(compiled),
-            width,
-            height,
-            resolution(width, height),
-            relative_lora(lora.get("path", "")),
-            float(lora.get("strength", 0.0)),
-            NEGATIVE,
-            info(page, characters),
+        self,
+        filename: str = EMPTY_FILE,
+        dialogue_mode: str = "跟随页面",
+        slant_mode: str = "cut",
+        include_triggers: bool = True,
+        width: int = 1024,
+        height: int = 1536,
+    ) -> dict:
+        metadata = inspect_import(
+            filename,
+            dialogue_mode=dialogue_mode,
+            slant_mode=slant_mode,
+            include_triggers=include_triggers,
+            width=width,
+            height=height,
         )
+        with Image.open(io.BytesIO(base64.b64decode(metadata["draft_png_base64"]))) as draft:
+            tensor = images_tensor([draft.convert("RGB")])
+        return {
+            "ui": {"soda": [{key: value for key, value in metadata.items() if key != "result"}]},
+            "result": (*metadata["result"], tensor),
+        }
 
 
 class SodaLoadMossJSON(SodaNode):
@@ -145,31 +235,37 @@ class SodaLoadMossJSON(SodaNode):
                 "source": string(multiline=True),
                 "width": ("INT", {"default": 1024, "min": 16, "step": 16}),
                 "height": ("INT", {"default": 1536, "min": 16, "step": 16}),
-            }
+            },
+            "optional": {"filename": ([EMPTY_MOSS, *list_files("moss")], {"default": EMPTY_MOSS})},
         }
 
     @classmethod
-    def IS_CHANGED(cls, source: str, width: int, height: int) -> str:
-        payload = source.strip().encode()
-        if not source.lstrip().startswith("{"):
-            payload = Path(source).expanduser().read_bytes()
+    def IS_CHANGED(
+        cls, source: str = "", width: int = 1024, height: int = 1536, filename: str = EMPTY_MOSS
+    ) -> str:
+        payload = (source + filename).encode()
+        try:
+            if source.strip() and not source.lstrip().startswith("{"):
+                payload = Path(source).expanduser().read_bytes()
+            elif not source.strip():
+                payload = file_path(filename).read_bytes()
+        except (OSError, ValueError, ImportError):
+            pass
         return hashlib.sha256(payload + dumps([width, height]).encode()).hexdigest()
 
-    def execute(self, source: str, width: int = 1024, height: int = 1536) -> tuple:
+    def execute(
+        self, source: str = "", width: int = 1024, height: int = 1536, filename: str = EMPTY_MOSS
+    ) -> tuple:
         core("models")
+        if not source.strip():
+            source = str(file_path(filename))
         payload = (
             source
             if source.lstrip().startswith("{")
             else Path(source).expanduser().read_text(encoding="utf-8-sig")
         )
         value = json.loads(payload)
-        if (
-            not isinstance(value, dict)
-            or not isinstance(value.get("summary"), dict)
-            or not isinstance(value.get("items"), list)
-        ):
-            msg = "MOSS JSON 必须包含 summary 对象和 items 数组"
-            raise TypeError(msg)
+        validate_moss(value)
         return dumps(value), width, height, resolution(width, height)
 
 

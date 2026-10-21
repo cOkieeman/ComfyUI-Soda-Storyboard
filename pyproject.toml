@@ -37,6 +37,8 @@ ignore = ["COM812", "CPY001", "D", "ISC001"]
 "nodes/storyboard.py" = ["N802", "FBT001", "FBT002", "PLR0913", "PLR0917"]
 # Geometry and image channel counts are explicit protocol dimensions.
 "nodes/images.py" = ["PLR0913", "PLR0917", "PLR2004"]
+# Import rendering keeps the named user options together at the API boundary.
+"nodes/importing.py" = ["PLR0913"]
 # Dynamic PromptServer/aiohttp boundary and local editor lifecycle.
 "routes.py" = ["ANN401", "RUF001", "PLR0911"]
 # Assertions and fixed numeric geometry are test expectations.

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 WORKFLOWS = Path(__file__).resolve().parents[1] / "example_workflows"
 CORE_TYPES = {
     "UNETLoader",
+    "LoraLoaderModelOnly",
     "ModelSamplingAuraFlow",
     "CLIPLoader",
     "VAELoader",
@@ -71,7 +72,7 @@ def test_ui_workflow_links(plugin: ModuleType, filename: str) -> None:
     expected_denoise = {"minimal_page.json": 1, "panel_redraw.json": 0.45, "character_swap.json": 0.85}
     assert sampler["widgets_values"][-1] == expected_denoise[filename]
     if filename == "character_swap.json":
-        assert sum(n["type"] == "SodaLoadStoryboardLoRA" for n in nodes.values()) == 1
+        assert sum(n["type"] == "LoraLoaderModelOnly" for n in nodes.values()) == 1
         assert any(n["type"] == "ImageCompositeMasked" for n in nodes.values())
 
 

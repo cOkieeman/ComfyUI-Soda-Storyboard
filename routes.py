@@ -9,7 +9,9 @@ import threading
 from typing import Any
 from urllib.parse import quote, urlsplit
 
+from .nodes.bundles import MAX_FILE_BYTES, file_path, list_files, store_upload
 from .nodes.core import core, inside, page_path, project_root
+from .nodes.workspaces import export_copy, inspect_import, inspect_link, materialize
 
 _EDITOR_LOCK = threading.Lock()
 _REGISTERED = False
@@ -78,29 +80,118 @@ def editor_stop(project_dir: str) -> dict:
         return core("edit").stop(root, inside(root, ".soda/server.json"))
 
 
+class RequestTooLargeError(ValueError):
+    pass
+
+
+async def inspect_request(request: Any, action: str) -> dict:
+    options = {
+        "dialogue_mode": request.query.get("dialogue_mode", "跟随页面"),
+        "slant_mode": request.query.get("slant_mode", "cut"),
+        "include_triggers": request.query.get("include_triggers", "true") == "true",
+    }
+    if action == "inspect":
+        result = await asyncio.to_thread(
+            inspect_import,
+            request.query.get("filename", ""),
+            **options,
+            width=int(request.query.get("width", 1024)),
+            height=int(request.query.get("height", 1536)),
+        )
+    else:
+        result = await asyncio.to_thread(
+            inspect_link, request.query.get("project_dir", ""), request.query.get("page_id", ""), **options
+        )
+    if result["revision"] == request.query.get("revision"):
+        return {"unchanged": True, "revision": result["revision"]}
+    return {key: value for key, value in result.items() if key != "result"}
+
+
+async def upload_request(request: Any) -> dict:
+    if request.content_length and request.content_length > MAX_FILE_BYTES + MAX_REQUEST_BYTES:
+        msg = "上传文件过大"
+        raise RequestTooLargeError(msg)
+    reader = await request.multipart()
+    field = await reader.next()
+    if field is None or field.name != "file" or not field.filename:
+        msg = "请选择 JSON 文件"
+        raise ValueError(msg)
+    payload = bytearray()
+    while chunk := await field.read_chunk():
+        payload.extend(chunk)
+        if len(payload) > MAX_FILE_BYTES:
+            msg = "上传文件不能超过 16 MiB"
+            raise RequestTooLargeError(msg)
+    name = await asyncio.to_thread(
+        store_upload, field.filename, bytes(payload), request.query.get("kind", "storyboard")
+    )
+    return {"name": name, "subfolder": "soda-storyboard", "type": "input"}
+
+
+async def mutation_request(request: Any, action: str) -> dict:
+    if request.content_length is None or request.content_length > MAX_REQUEST_BYTES:
+        msg = "请求体缺少长度或过大"
+        raise RequestTooLargeError(msg)
+    body = await request.json()
+    if not isinstance(body, dict):
+        msg = "请求体必须为对象"
+        raise TypeError(msg)
+    if action in {"edit_import", "export"}:
+        if not isinstance(body.get("filename"), str):
+            msg = "请先导入分镜包"
+            raise ValueError(msg)
+        if action == "export":
+            name = await asyncio.to_thread(export_copy, body["filename"])
+            bundle = await asyncio.to_thread(core("io").read_json, file_path(name))
+            return {"name": name, "bundle": bundle}
+        root, page_id = await asyncio.to_thread(
+            materialize,
+            body["filename"],
+            convert_moss=body.get("convert_moss") is True,
+            width=int(body.get("width", 1024)),
+            height=int(body.get("height", 1536)),
+        )
+        result = await asyncio.to_thread(editor_start, str(root), page_id)
+        return {**result, "project_dir": str(root), "page_id": page_id}
+    if not isinstance(body.get("project_dir"), str):
+        msg = "请填写 project_dir"
+        raise TypeError(msg)
+    if action == "stop":
+        return await asyncio.to_thread(editor_stop, body["project_dir"])
+    page_id = body.get("page_id", "")
+    if not isinstance(page_id, str):
+        msg = "page_id 必须是字符串"
+        raise TypeError(msg)
+    return await asyncio.to_thread(editor_start, body["project_dir"], page_id)
+
+
 async def dispatch(request: Any, action: str) -> Any:
     web = importlib.import_module("aiohttp.web")
     if not allowed_request(request.remote or "", request.host, request.headers.get("Origin")):
         return web.json_response({"error": "仅允许回环地址和同源请求访问分镜接口"}, status=403)
     try:
         if action == "pages":
-            value = await asyncio.to_thread(list_pages, request.query.get("project_dir", ""))
-            return web.json_response({"pages": value})
-        if request.content_length is None or request.content_length > MAX_REQUEST_BYTES:
-            return web.json_response({"error": "请求体缺少长度或过大"}, status=413)
-        body = await request.json()
-        if not isinstance(body, dict) or not isinstance(body.get("project_dir"), str):
-            return web.json_response({"error": "请填写 project_dir"}, status=400)
-        if action == "start":
-            page_id = body.get("page_id", "")
-            if not isinstance(page_id, str):
-                return web.json_response({"error": "page_id 必须是字符串"}, status=400)
-            result = await asyncio.to_thread(editor_start, body["project_dir"], page_id)
+            result = {"pages": await asyncio.to_thread(list_pages, request.query.get("project_dir", ""))}
+        elif action == "files":
+            result = {"files": await asyncio.to_thread(list_files, request.query.get("kind", "storyboard"))}
+        elif action in {"inspect", "link"}:
+            result = await inspect_request(request, action)
+        elif action == "upload":
+            result = await upload_request(request)
         else:
-            result = await asyncio.to_thread(editor_stop, body["project_dir"])
+            result = await mutation_request(request, action)
         return web.json_response(result)
-    except (ValueError, OSError, RuntimeError) as exc:
+    except RequestTooLargeError as exc:
+        return web.json_response({"error": str(exc)}, status=413)
+    except (ValueError, TypeError, KeyError, OSError, RuntimeError) as exc:
         return web.json_response({"error": str(exc)}, status=400)
+
+
+def route_handler(action: str) -> Any:
+    async def handler(request: Any) -> Any:
+        return await dispatch(request, action)
+
+    return handler
 
 
 def register_routes() -> None:
@@ -114,17 +205,16 @@ def register_routes() -> None:
     if not hasattr(prompt_server, "instance"):
         return
     routes = prompt_server.instance.routes
-
-    @routes.get("/soda_storyboard/pages")
-    async def pages(request: Any) -> Any:
-        return await dispatch(request, "pages")
-
-    @routes.post("/soda_storyboard/editor/start")
-    async def start(request: Any) -> Any:
-        return await dispatch(request, "start")
-
-    @routes.post("/soda_storyboard/editor/stop")
-    async def stop(request: Any) -> Any:
-        return await dispatch(request, "stop")
-
+    for method, path, action in (
+        ("get", "pages", "pages"),
+        ("get", "files", "files"),
+        ("get", "inspect", "inspect"),
+        ("get", "link", "link"),
+        ("post", "upload", "upload"),
+        ("post", "import/edit", "edit_import"),
+        ("post", "import/export", "export"),
+        ("post", "editor/start", "start"),
+        ("post", "editor/stop", "stop"),
+    ):
+        getattr(routes, method)(f"/soda_storyboard/{path}")(route_handler(action))
     _REGISTERED = True

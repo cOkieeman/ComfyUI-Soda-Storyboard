@@ -1,6 +1,14 @@
 # ComfyUI-Soda-Storyboard
 
-在 ComfyUI 画布上读取 Soda Storyboard 分镜单，输出 MOSS 布局 JSON、尺寸与主角 LoRA 信息，生成火柴人草稿，并完成切格、换人遮罩、贴回、斜切裁剪和程序排字。侧边栏提供网页分镜编辑器入口。
+把分镜文件拖入 ComfyUI，即可在“导入分镜”节点上同时看到**分镜图**和**最终投入 MOSS 的完整 JSON 提示词**。支持分镜包、单独分镜单和 MOSS 布局 JSON；编辑时再打开侧边栏编辑器，后续可切格、换人、贴回、斜切裁剪和排字。
+
+## 第一次使用：三步跑通
+
+1. 装好节点包和核心库 wheel，重启 ComfyUI。
+2. 在 Codex / Claude 插件里导出 `<页id>.storyboard.json` 分镜包。核心库的 `export-bundle` 命令由后续版本提供；在它发布前，本版本也能直接读现有单页分镜 JSON，或读下文格式的手工分镜包。
+3. 打开 `example_workflows/minimal_page.json` 模板，将分镜文件拖到模板导入节点的预览区域（或点“上传分镜文件”），即可复用原连线。检查节点内分镜图、MOSS 文本，按本机实际文件选择主模型、编码器、VAE 和需要的 LoRA，再点运行。无需 LoRA 时旁路原生 LoRA Loader。
+
+拖到空白画布会自动新建一个“导入分镜”节点；拖到已有导入节点的预览区或使用上传按钮则直接复用其连线。未选文件时显示“上传或拖入 .storyboard.json”和一行红色提示，自动刷新不会反复弹出错误窗口。
 
 本包要求 [soda-storyboard](https://github.com/cOkieeman/soda-storyboard) **0.3.1 或更高版本**，通过预构建 wheel 安装，不内置或复制核心库代码。讨论剧情、编写分镜单仍使用 Codex / Claude 插件。需要 Python 3.12+ 和支持 MOSS 的新版 ComfyUI。
 
@@ -44,7 +52,25 @@ python -m pip install --upgrade -r requirements.txt
 
 随后重启 ComfyUI。torch、numpy 使用 ComfyUI 环境提供的版本；Pillow 是核心库的依赖，本包不会主动安装另一套 torch。wheel 依赖安装不要求 Git 构建核心库。
 
-未装核心库时十个节点仍注册，需要核心库的节点运行时提示“请先安装 soda-storyboard：pip install -r requirements.txt”。启动时若检测到核心库低于 0.3.1，会在 ComfyUI 控制台输出一行升级提示，节点包继续加载。加载分镜 LoRA 节点只依赖 ComfyUI 运行时，空名称直接返回输入模型。
+未装核心库时十一个节点仍注册，需要核心库的节点运行时提示“请先安装 soda-storyboard：pip install -r requirements.txt”。启动时若检测到核心库低于 0.3.1，会在 ComfyUI 控制台输出一行升级提示，节点包继续加载。加载分镜 LoRA 节点只依赖 ComfyUI 运行时，空名称直接返回输入模型。
+
+## 导入与链接的区别
+
+**导入是副本**：主要入口“导入分镜 · Load Storyboard”接受三类 JSON。文件保存到 ComfyUI 的 `input/soda-storyboard/`，下拉列出已导入文件，不会修改 Codex / Claude 的原项目。外部源项目改了，要重新导出并上传。
+
+- 分镜包：`format` 为 `soda-storyboard-bundle-v1`，包含 `project` 项目设置、`page` 完整分镜单、`characters`（角色 id 到完整角色卡的映射），以及可选的 `exported_at` 和 `sketch_png_base64`。页面显式设置优先于项目默认设置。
+- 单独分镜单：包含 `panels`，没有角色卡也能编译；节点会提示“未包含角色卡，LoRA 和外观描述缺失”。
+- MOSS JSON：包含 `summary` 和 `items`，保持原始提示词，并用不同颜色画出格子、人物、文字框，显示 caption 摘要和台词。若文件没有 `width` / `height` 或 `canvas` 尺寸，在节点上设置实际宽高，默认 1024×1536。支持绝对中心坐标、左上角绝对坐标和 0～1 归一化坐标，bbox 顺序支持 yxyx / xyxy。
+
+三类输入都无需先运行工作流即可预览。分镜包和分镜单的草稿始终用核心库重新渲染火柴人图，避免附件缩略图过期。节点可拉大，图片随可用空间缩放；完整 JSON 在只读滚动文本框中显示，支持复制及格式化 / 压缩切换。新节点额外输出 `draft` IMAGE，与节点显示的是同一张图（最长边不超过 1024）。
+
+点击“在编辑器中打开”，首次会在 `input/soda-storyboard/<文件名>/` 建立工作项目，补齐最小项目设置并启动核心库编辑器。节点随后读取这个工作副本，编辑器保存后约 1.5 秒内刷新分镜图、最终提示词及下拉选项，下次运行也使用相同新内容。“另存为新分镜包”把修改后的项目、角色卡和新缩略图写入新的包文件，下载到浏览器并选中该包；不会覆盖原上传文件。节点删除后会停止自己的预览轮询。
+
+MOSS JSON 没有完整分镜结构，编辑按钮显示“转换为分镜单后编辑”，确认近似转换后才建立工作项目：object / panel 的 bbox 转格子，text 转文字框，caption 转描述，人物条目只在框图中显示。转换无法还原原始斜边、人物火柴人站位等信息；复杂重叠布局可能需要在编辑器内调整。未经转换时 MOSS JSON 原样送入采样流程。
+
+**链接项目会自动同步**：“链接分镜项目（进阶）· Link Storyboard Project”用于直接读取本机项目目录。首次输入目录并点“记住项目”，以后从下拉选择；页面自动列出，不用手动刷新。目录记在当前浏览器本地。分镜页、角色卡或项目设置改变时，预览自动刷新，下次运行重新编译。该节点也直接显示草稿和完整 MOSS 文本，保留原先八个输出口，旧工作流无需改端口索引。
+
+**LoRA 由使用者控制**：角色卡路径和强度只作为建议，摘要显示建议角色、LoRA 和强度；导入或预览不会加载 LoRA。三个模板使用原生 `LoraLoaderModelOnly`，由使用者手选文件和强度。两个以上出场角色带 LoRA 时只提示“建议一次只加载一个角色 LoRA”，不拦截编译。“提示词包含触发词”默认开启，把出场角色触发词写到对应格子的描述；关闭时省去自动添加的触发词，外观描述始终保留。用户手写在描述中的文字不会被删掉。核心插件 / CLI 的自动出图行为不受此节点包影响。
 
 ## 分镜项目
 
@@ -58,9 +84,9 @@ characters/
   hero.json
 ```
 
-页面 id 填 `pages` 内文件名，不带 `.json`。点击节点的“刷新页面”可下拉选择，原 STRING 输入仍可编辑或转为连线。页面和全部角色文件的内容哈希用于缓存失效，保存分镜后再次排队会重新编译；不会自动提交生成任务。
+此结构只用于进阶链接项目。页面 id 对应 `pages` 内文件名，不带 `.json`，前端会自动列成下拉。底层 STRING 输入保持兼容旧工作流和连线；页面、角色卡及项目设置的内容哈希用于缓存失效。预览更新不会自动提交生成任务。
 
-角色卡的 `lora.path` 应相对于 ComfyUI 的 `models/loras`，例如 `characters/hero.safetensors`。主角按出场格数最多选择，平票按 id 排序，一次只选一个 LoRA。无 LoRA 输出空字符串和强度 0。
+角色卡的 `lora.path` 应相对于 ComfyUI 的 `models/loras`，例如 `characters/hero.safetensors`。建议主角按出场格数最多选择，平票按 id 排序；这不会自动加载任何 LoRA。无建议时输出空字符串和强度 0。
 
 ## 节点
 
@@ -68,9 +94,10 @@ characters/
 
 | 类名 | 显示名 | 输入 | 输出 |
 | --- | --- | --- | --- |
-| `SodaLoadStoryboardPage` | 载入分镜页 · Load Storyboard Page | 项目目录、页面 id、台词模式、cut/hint | `moss_json` STRING、`width` INT、`height` INT、`resolution_json` STRING、`lora_name` STRING、`lora_strength` FLOAT、`negative` STRING、`page_info` STRING |
+| `SodaLoadStoryboard` | 导入分镜 · Load Storyboard | 上传文件、台词模式、cut/hint、触发词开关、MOSS 宽高 | 下行全部八个输出，另加 `draft` IMAGE |
+| `SodaLoadStoryboardPage` | 链接分镜项目（进阶）· Link Storyboard Project | 项目下拉、页面下拉、台词模式、cut/hint、触发词开关 | `moss_json` STRING、`width` INT、`height` INT、`resolution_json` STRING、`lora_name` STRING、`lora_strength` FLOAT、`negative` STRING、`page_info` STRING |
 | `SodaLoadStoryboardLoRA` | 加载分镜 LoRA · Load Storyboard LoRA | MODEL、`lora_name` STRING、`strength` FLOAT | MODEL |
-| `SodaLoadMossJSON` | 载入 MOSS JSON · Load MOSS JSON | `.moss.json` 路径或 JSON 文本、宽高 | `moss_json` STRING、宽高 INT、`resolution_json` STRING |
+| `SodaLoadMossJSON` | 载入 MOSS JSON · Load MOSS JSON | 保留旧工作流和粘贴文本兼容；新导入推荐统一入口 | `moss_json` STRING、宽高 INT、`resolution_json` STRING |
 | `SodaStoryboardPreview` | 分镜草稿图 · Storyboard Preview | 项目目录和页面 id，或可选 `page_info` | 火柴人草稿 IMAGE |
 | `SodaCropPanel` | 切格 · Crop Panel | 整页 IMAGE、`page_info`、格子 id/阅读序号、缩放开关 | 单格 IMAGE、四边形 MASK、`panel_prompt` STRING、`panel_box` STRING |
 | `SodaCharacterMask` | 人物遮罩 · Character Mask | 单格或整页 IMAGE、`page_info`、格子、角色 id、余量、羽化、图像范围 | 人物 MASK |
@@ -81,7 +108,7 @@ characters/
 
 `page_info` 是含版本号、页面和角色卡的 JSON 快照，保留台词模式覆盖后的结果。连接到后处理节点即可，不需要后处理时重新读取磁盘。`panel_box` 包括裁剪位置、原图/目标尺寸、横纵缩放比例及页面快照，贴回时自动恢复原格尺寸。整页图必须与分镜画布尺寸一致，避免悄悄错位。
 
-格子优先按 id 匹配，否则将数字解释为从 1 开始的阅读顺序。切格默认把长边缩放到 1024，两个维度对齐 16；比例可能产生小幅取整误差。人物遮罩默认余量 24px、羽化 16px，单位为原分镜画布像素；会在羽化后清除同格另一角色的区域。“图像范围”默认是“格子”：输入切格节点得到的单格，遮罩缩放到该单格的尺寸。选择“整页”时输入完整页面，遮罩按分镜页坐标放到整页上，整页尺寸必须与分镜画布一致。
+切格、人物遮罩的格子下拉从上游 `page_info` 按阅读顺序列出，角色下拉列出所选格子的出场角色；连接、切换文件或格子时自动更新。底层 STRING 仍接受 id，旧数字值按从 1 开始的阅读序号兼容。切格默认把长边缩放到 1024，两个维度对齐 16；比例可能产生小幅取整误差。人物遮罩默认余量 24px、羽化 16px，单位为原分镜画布像素；会在羽化后清除同格另一角色的区域。“图像范围”默认是“格子”：输入切格节点得到的单格，遮罩缩放到该单格的尺寸。选择“整页”时输入完整页面，遮罩按分镜页坐标放到整页上，整页尺寸必须与分镜画布一致。
 
 贴回支持相同 batch 数，以及一张整页配多个重画候选或一张重画格子广播到多张整页；其他 batch 组合报错。格外浮点像素保留原值，斜切格通过四边形遮罩贴回。保护文字默认开启，复用核心库的原文字区域保护规则。
 
@@ -93,37 +120,37 @@ characters/
 
 ## 接到 Soda-MOSS v2
 
-1. 将载入分镜页的 `moss_json` 接到原 JSON 文字框的 STRING 输入。若 String Literal 节点只能输出而不能接入，将它的原输出线改接 `moss_json`，直接送到相同的下游输入。不要把 JSON 再套一层引号。
+1. 将导入分镜的 `moss_json` 接到原 JSON 文字框的 STRING 输入。若 String Literal 节点只能输出而不能接入，将它的原输出线改接 `moss_json`，直接送到相同的下游输入。不要把 JSON 再套一层引号。
 2. 把 `resolution_json` 接到 ResolutionPreset 的 `resolution_json` 输入；必要时右键把其文字控件转为输入。格式为 `{"version":1,"width":W,"height":H}`。也可把两个 INT 输出直接接原生 latent 的宽高。
-3. `negative` 接负面文本编码器。把 `UNETLoader.MODEL` 接“加载分镜 LoRA”的 `model`，`载入分镜页.lora_name` 接它的 `lora_name`，`lora_strength` 接它的 `strength`。再把 MODEL 输出接 `ModelSamplingAuraFlow`（shift 5）。
-4. 新 LoRA 节点直接接收 STRING，不受原生 COMBO 下拉框的连线限制；名称为空时自动跳过，保留原模型。名称是相对于 `models/loras` 的路径，找不到文件会给出中文错误。换人时只加载目标角色的一个人物 LoRA。
-5. 解码后依次连接斜切裁剪、排字、保存图像；两个后处理节点的 `page_info` 都接载入分镜页。
+3. `negative` 接负面文本编码器。默认模板中 `UNETLoader` 接原生 `LoraLoaderModelOnly`，由使用者自己选文件、强度，再接 `ModelSamplingAuraFlow`（shift 5）。不使用 LoRA 时旁路这个 Loader。
+4. 若明确想自动采用角色卡建议，可以自行把原生 Loader 替换成“加载分镜 LoRA”：连接 MODEL、`lora_name`、`lora_strength`（接 `strength`）。这个可选节点直接接收 STRING，名称为空时透传模型，找不到文件会报中文错误。它不在默认示例中。
+5. 解码后依次连接斜切裁剪、排字、保存图像；两个后处理节点的 `page_info` 都接导入分镜。可把 `draft` 接到 PreviewImage 等节点复用草稿。
 
 ## 侧边栏编辑器
 
-点击 ComfyUI 侧边栏“分镜”，填写项目目录，刷新并选择页面，点击“打开 / 复用编辑器”。节点上的“在编辑器中打开”会跳到同一侧边栏并定位对应页面。服务使用空闲本地端口，iframe 打开 `http://127.0.0.1:<port>/#page=<id>`。
+导入节点上的编辑按钮会自动建立工作项目并打开侧边栏，不需要另填目录。链接项目也可从侧边栏填写目录，页面自动列出后点击“打开 / 复用编辑器”。服务使用空闲本地端口，iframe 打开 `http://127.0.0.1:<port>/#page=<id>`。
 
 后端复用核心库 `edit` 的启动、健康检查、`.soda/server.json` 状态和停止逻辑。只有核对项目、进程及实例身份后才停止服务。关闭侧边栏不会停止服务，使用“停止本项目编辑器”显式停止。接口通过 `asyncio.to_thread` 执行耗时操作，不阻塞 ComfyUI 事件循环。
 
-路由包括 `GET /soda_storyboard/pages`、`POST /soda_storyboard/editor/start`、`POST /soda_storyboard/editor/stop`。只接受回环 IP 的请求、回环 Host，以及同源 Origin（若浏览器提供），因此浏览器和 ComfyUI 应在同一台电脑上使用。远程浏览器或经不同来源的反向代理不支持 iframe 入口。
+路由包括页面 / 文件列表、上传、预览、工作副本编辑 / 导出，以及编辑器启动 / 停止。只接受回环 IP 的请求、回环 Host，以及同源 Origin（若浏览器提供），因此浏览器和 ComfyUI 应在同一台电脑上使用。上传限 16 MiB，禁止目录穿越，不会覆盖不同内容的已有文件。远程浏览器或经不同来源的反向代理不支持 iframe 入口。
 
 ## 示例工作流
 
-拖入 `example_workflows/` 的 UI 格式 JSON。先填写项目目录、页面 id 和已有整页图片。三个示例都使用“加载分镜 LoRA”，名称和强度连接到载入分镜页的输出，没有写死人物 LoRA。
+拖入 `example_workflows/` 的 UI 格式 JSON，三个模板都以“上传或拖入 .storyboard.json”的统一导入节点开头。上传分镜文件，重画模板再选择已有整页图片。LoRA 都使用 ComfyUI 原生 Loader，文件和强度由使用者手选；建议输出没有自动连到模型。
 
 模型文件名采用核心库 README / `production/graphs.py` 中的 MOSS-Image 默认值：
 
 | 用途 | 示例值 |
 | --- | --- |
-| SFT 主模型 | `MOSS-Image/MOSS-Image-SFT/moss_image_sft_int8_convrot.safetensors` |
+| SFT 主模型 | `moss_image_sft_int8_convrot.safetensors` |
 | 文本编码器 | `qwen3.5_9b_w4a8_gptq.safetensors`，类型 `moss_image` |
 | VAE | `flux2-vae.safetensors` |
 
-用户仍需按自己 `models/diffusion_models`、`models/text_encoders` 和 `models/vae` 目录里的实际相对路径选择文件。子目录不同就重新选择；这些模型不会随节点包下载。
+模板刻意只保存模型文件的基本名，不保存子目录：Windows 下拉使用反斜杠，其他系统可能使用正斜杠，统一写死任一分隔符都可能校验失败。用户必须在下拉中按自己 `models/diffusion_models`、`models/text_encoders` 和 `models/vae` 目录里的实际位置重新选择。模型不会随节点包下载。
 
 - `minimal_page.json`：载入 → MOSS 原生采样 → 斜切裁剪 → 排字 → 保存。shift 5，25 步，er_sde，simple，CFG 2.5。
 - `panel_redraw.json`：载入已有整页图 → 切格 → 图生图（降噪 0.45）→ 贴回 → 保存。
-- `character_swap.json`：切格 → 人物遮罩 → 局部重绘（降噪 0.85）→ 用同一遮罩合成回原单格 → 贴回。默认加载页面主角 LoRA，人物遮罩的 `character_id` 留空供填写，必须填写同一主角的 id。若换其他角色，断开 LoRA 节点的 `lora_name` 和 `strength` 输入，改填该目标角色卡中的路径、强度，同时修改人物遮罩的角色 id。若修改切格选择，也要同步修改人物遮罩中的格子选择。
+- `character_swap.json`：切格 → 人物遮罩 → 局部重绘（降噪 0.85）→ 用同一遮罩合成回原单格 → 贴回。在原生 Loader 中选**要换上的那个角色的 LoRA**和强度，人物遮罩下拉选择对应角色；切格与遮罩的格子选择必须一致。节点摘要只是建议，不会替你决定。
 
 示例只使用本包及 ComfyUI 核心节点，要求核心提供 `moss_image` CLIP 类型和 `EmptyFlux2LatentImage`。已做静态结构及连线检查；真实 ComfyUI 导入、模型运行和出图质量需在目标安装环境验收。
 
@@ -151,7 +178,7 @@ python -m pytest
 
 ## English
 
-ComfyUI nodes for compiling Soda Storyboard pages into MOSS layout JSON and post-processing manga images. Includes a STRING-compatible LoRA loader, sketch previews, panel cropping/pasting, character masks, quad cuts, lettering, reference layout extraction, and a local editor sidebar. Install the prebuilt soda-storyboard 0.3.1+ wheel with ComfyUI's Python, restart, and find **Soda Storyboard** in the node menu. The v0.3.1 Release URL is provisional until publication. Portable Python must use the wheel to avoid isolated source-build failures. Requires Python 3.12+ and a MOSS-capable ComfyUI. Example model filenames follow the core defaults; select the actual relative paths in your installation. Only one character LoRA should be loaded at a time. The editor routes accept loopback, same-origin requests only.
+Drop a storyboard bundle, bare page JSON or MOSS layout JSON into ComfyUI. The unified Load Storyboard node shows a draft and the exact final MOSS JSON before execution, with copy/format controls. Edit an imported working copy in the local sidebar, then save a new bundle; advanced project linking stays in sync with local files. LoRA metadata is advisory: default examples use the native loader with manual selection. Trigger words are optional; appearance descriptions remain. Requires Python 3.12+, a MOSS-capable ComfyUI and the prebuilt soda-storyboard 0.3.1+ wheel (Release URL pending publication). The core bundle-export command is forthcoming; bare pages and manually built bundles already work. Model paths must be selected from your own installation. Editor routes accept loopback, same-origin requests only.
 
 ## License
 

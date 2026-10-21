@@ -1,18 +1,18 @@
 {
   "last_node_id": 15,
-  "last_link_id": 22,
+  "last_link_id": 21,
   "nodes": [
     {
       "id": 1,
-      "type": "SodaLoadStoryboardPage",
-      "title": "填写项目目录与页面 id",
+      "type": "SodaLoadStoryboard",
+      "title": "上传或拖入 .storyboard.json",
       "pos": [
         0,
         0
       ],
       "size": [
-        320,
-        200
+        500,
+        820
       ],
       "flags": {},
       "order": 0,
@@ -47,17 +47,13 @@
           "name": "lora_name",
           "type": "STRING",
           "slot_index": 4,
-          "links": [
-            22
-          ]
+          "links": []
         },
         {
           "name": "lora_strength",
           "type": "FLOAT",
           "slot_index": 5,
-          "links": [
-            2
-          ]
+          "links": []
         },
         {
           "name": "negative",
@@ -74,16 +70,24 @@
           "links": [
             5
           ]
+        },
+        {
+          "name": "draft",
+          "type": "IMAGE",
+          "slot_index": 8,
+          "links": []
         }
       ],
       "properties": {
-        "Node name for S&R": "SodaLoadStoryboardPage"
+        "Node name for S&R": "SodaLoadStoryboard"
       },
       "widgets_values": [
-        "",
-        "page-id",
+        "上传或拖入 .storyboard.json",
         "跟随页面",
-        "cut"
+        "cut",
+        true,
+        1024,
+        1536
       ]
     },
     {
@@ -116,14 +120,14 @@
         "Node name for S&R": "UNETLoader"
       },
       "widgets_values": [
-        "MOSS-Image/MOSS-Image-SFT/moss_image_sft_int8_convrot.safetensors",
+        "moss_image_sft_int8_convrot.safetensors",
         "default"
       ]
     },
     {
       "id": 3,
-      "type": "SodaLoadStoryboardLoRA",
-      "title": "加载页面主角 LoRA（空名称自动跳过）",
+      "type": "LoraLoaderModelOnly",
+      "title": "手选 LoRA 和强度（不使用时旁路）",
       "pos": [
         360,
         430
@@ -140,27 +144,11 @@
           "name": "model",
           "type": "MODEL",
           "link": 1
-        },
-        {
-          "name": "lora_name",
-          "type": "STRING",
-          "link": 22,
-          "widget": {
-            "name": "lora_name"
-          }
-        },
-        {
-          "name": "strength",
-          "type": "FLOAT",
-          "link": 2,
-          "widget": {
-            "name": "strength"
-          }
         }
       ],
       "outputs": [
         {
-          "name": "model",
+          "name": "MODEL",
           "type": "MODEL",
           "slot_index": 0,
           "links": [
@@ -169,7 +157,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SodaLoadStoryboardLoRA"
+        "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
         "",
@@ -715,7 +703,7 @@
         "Node name for S&R": "SaveImage"
       },
       "widgets_values": [
-        "SodaStoryboard/redraw"
+        "SodaStoryboard_redraw"
       ]
     }
   ],
@@ -727,14 +715,6 @@
       3,
       0,
       "MODEL"
-    ],
-    [
-      2,
-      1,
-      5,
-      3,
-      2,
-      "FLOAT"
     ],
     [
       3,
@@ -887,14 +867,6 @@
       15,
       0,
       "IMAGE"
-    ],
-    [
-      22,
-      1,
-      4,
-      3,
-      1,
-      "STRING"
     ]
   ],
   "groups": [],

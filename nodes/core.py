@@ -53,6 +53,8 @@ def page_path(root: Path, page_id: str) -> Path:
 def content_hash(project_dir: str, page_id: str, *options: str) -> str:
     root = project_root(project_dir)
     paths = [page_path(root, page_id)]
+    if inside(root, "project.json").is_file():
+        paths.append(inside(root, "project.json"))
     directory = inside(root, "characters")
     paths.extend(sorted(directory.glob("*.json")))
     digest = hashlib.sha256(dumps(options).encode())
@@ -67,6 +69,13 @@ def load(project_dir: str, page_id: str, dialogue_mode: str = "跟随页面") ->
     io = core("io")
     root = project_root(project_dir)
     page = io.load_page(page_path(root, page_id))
+    project_file = inside(root, "project.json")
+    if project_file.is_file():
+        from .bundles import page_defaults  # noqa: PLC0415 -- resolve the adapter cycle only during execution
+
+        page = core("models").Page.from_dict(
+            page_defaults(io.read_json(page_path(root, page_id)), io.read_json(project_file))
+        )
     character_dir = inside(root, "characters")
     for path in character_dir.glob("*.json"):
         inside(root, path.relative_to(root).as_posix())

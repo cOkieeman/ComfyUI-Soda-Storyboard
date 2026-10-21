@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def test_registration(plugin: ModuleType) -> None:
-    assert len(plugin.NODE_CLASS_MAPPINGS) == 10
+    assert len(plugin.NODE_CLASS_MAPPINGS) == 11
     assert plugin.WEB_DIRECTORY == "./web"
     assert plugin.NODE_CLASS_MAPPINGS.keys() == plugin.NODE_DISPLAY_NAME_MAPPINGS.keys()
     for cls in plugin.NODE_CLASS_MAPPINGS.values():
@@ -34,7 +34,12 @@ def test_compile_contract(plugin: ModuleType, project: Path, slant: str) -> None
     expected = compile_page(
         load_page(project / "pages/p1.json"), load_characters(project / "characters"), slant_mode=slant
     )
-    assert json.loads(result[0]) == expected
+    actual = json.loads(result[0])
+    assert actual["summary"] == expected["summary"]
+    assert [item["bbox"] for item in actual["items"]] == [item["bbox"] for item in expected["items"]]
+    assert [item["label"] for item in actual["items"]] == [item["label"] for item in expected["items"]]
+    assert "a young traveler" in actual["items"][0]["caption"]
+    assert "person_a" in actual["items"][0]["caption"]
     assert result[1:3] == (320, 240)
     assert json.loads(result[3]) == {"version": 1, "width": 320, "height": 240}
     assert result[4:6] == ("characters/a.safetensors", 0.8)
@@ -89,7 +94,7 @@ def test_missing_core_has_actionable_error(plugin: ModuleType, monkeypatch: pyte
         return real_import(name, package)
 
     monkeypatch.setattr(adapter.importlib, "import_module", missing)
-    assert len(plugin.NODE_CLASS_MAPPINGS) == 10
+    assert len(plugin.NODE_CLASS_MAPPINGS) == 11
     with pytest.raises(RuntimeError, match=r"请先安装 soda-storyboard.*pip install"):
         plugin.NODE_CLASS_MAPPINGS["SodaLoadStoryboardPage"]().execute("unused", "p1")
 
@@ -112,7 +117,7 @@ def test_import_without_core(plugin: ModuleType, monkeypatch: pytest.MonkeyPatch
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
-    assert len(module.NODE_CLASS_MAPPINGS) == 10
+    assert len(module.NODE_CLASS_MAPPINGS) == 11
 
 
 def test_crop_paste_roundtrip(plugin: ModuleType, page_info: str) -> None:

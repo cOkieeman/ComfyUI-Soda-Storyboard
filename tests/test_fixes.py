@@ -172,21 +172,21 @@ def test_wheel_dependency_matches_metadata() -> None:
 
 
 @pytest.mark.parametrize("filename", ["minimal_page.json", "panel_redraw.json", "character_swap.json"])
-def test_workflow_uses_connected_lora_and_real_models(filename: str) -> None:
+def test_workflow_uses_manual_lora_and_real_models(filename: str) -> None:
     text = (ROOT / "example_workflows" / filename).read_text(encoding="utf-8")
     graph = json.loads(text)
-    nodes = {node["id"]: node for node in graph["nodes"]}
-    loader = next(n for n in nodes.values() if n["type"] == "SodaLoadStoryboardPage")
-    lora = next(n for n in nodes.values() if n["type"] == "SodaLoadStoryboardLoRA")
-    assert not any(n["type"] == "LoraLoaderModelOnly" for n in nodes.values())
-    links = {link[0]: link for link in graph["links"]}
-    for name, slot in (("lora_name", 4), ("strength", 5)):
-        input_link = next(i["link"] for i in lora["inputs"] if i["name"] == name)
-        assert links[input_link][1:3] == [loader["id"], slot]
-    unet = next(n for n in nodes.values() if n["type"] == "UNETLoader")
-    clip = next(n for n in nodes.values() if n["type"] == "CLIPLoader")
-    assert unet["widgets_values"][0].replace("\\", "/") == DEFAULTS["sft"].replace("\\", "/")
+    nodes = graph["nodes"]
+    assert nodes[0]["type"] == "SodaLoadStoryboard"
+    assert nodes[0]["widgets_values"][0] == "上传或拖入 .storyboard.json"
+    assert nodes[0]["title"] == "上传或拖入 .storyboard.json"
+    lora = next(n for n in nodes if n["type"] == "LoraLoaderModelOnly")
+    assert not any(n["type"] == "SodaLoadStoryboardLoRA" for n in nodes)
+    assert [i["name"] for i in lora["inputs"]] == ["model"]
+    unet = next(n for n in nodes if n["type"] == "UNETLoader")
+    clip = next(n for n in nodes if n["type"] == "CLIPLoader")
+    assert unet["widgets_values"][0] == DEFAULTS["sft"].replace("\\", "/").rsplit("/", 1)[-1]
     assert clip["widgets_values"][0] == DEFAULTS["clip"]
+    assert "/" not in unet["widgets_values"][0]
     assert lora["widgets_values"][0] == ""
     for placeholder in ("hero.safetensors", "moss_image_sft.safetensors", "qwen3.5_9b.safetensors"):
         assert placeholder not in text

@@ -94,4 +94,4 @@ def test_route_registration(plugin: ModuleType, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(routes, "_REGISTERED", False)
     routes.register_routes()
     routes.register_routes()
-    assert len(registered) == 3
+    assert len(registered) == 9
