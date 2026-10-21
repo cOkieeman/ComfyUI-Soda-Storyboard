@@ -1,0 +1,45 @@
+[project]
+name = "comfyui-soda-storyboard"
+version = "0.1.0"
+description = "ComfyUI nodes for Soda Storyboard page compilation and manga post-processing"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+dependencies = ["soda-storyboard @ git+https://github.com/cOkieeman/soda-storyboard@84a37f9"]
+
+[project.urls]
+Repository = "https://github.com/cOkieeman/ComfyUI-Soda-Storyboard"
+
+[tool.comfy]
+PublisherId = "cokieeman"
+DisplayName = "Soda Storyboard"
+Icon = ""
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.9"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+exclude = [".venv", ".test-tmp", ".tmp"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["COM812", "CPY001", "D", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+# ComfyUI loads the repository folder (whose public name contains hyphens) as a package.
+"**/__init__.py" = ["N999"]
+# JSON/tensor boundaries intentionally accept heterogeneous values and Chinese diagnostics.
+"nodes/*.py" = ["ANN401", "EM101", "EM102", "TRY003", "RUF001"]
+# Names and positional signatures are prescribed by the ComfyUI node API.
+"nodes/storyboard.py" = ["N802", "FBT001", "FBT002", "PLR0913", "PLR0917"]
+# Geometry and image channel counts are explicit protocol dimensions.
+"nodes/images.py" = ["PLR0913", "PLR0917", "PLR2004"]
+# Dynamic PromptServer/aiohttp boundary and local editor lifecycle.
+"routes.py" = ["ANN401", "RUF001", "PLR0911"]
+# Assertions and fixed numeric geometry are test expectations.
+"tests/*.py" = ["S101", "INP001", "PLR2004", "RUF001"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --confcutdir=tests --basetemp=.test-tmp"
