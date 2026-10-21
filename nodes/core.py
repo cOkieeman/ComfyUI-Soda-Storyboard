@@ -120,11 +120,16 @@ def select_panel(page: Any, selector: str) -> Any:
 
 
 def single_prompt(panel: Any, characters: dict) -> str:
-    caption = panel.caption_en
-    if not caption or not caption.isascii():
-        msg = f"格子 {panel.id} 请填写英文 caption_en，供单格重画使用"
-        raise ValueError(msg)
     compiler = core("compiler")
+    caption = (panel.caption_en or "").strip()
+    if not caption:
+        description = panel.description.strip()
+        if not description:
+            msg = f"格子 {panel.id} 缺少画面描述，请填写 caption_en 或 description"
+            raise ValueError(msg)
+        shot = compiler.SHOT_PHRASES.get(panel.shot, panel.shot.replace("_", "-"))
+        angle = compiler.ANGLE_PHRASES.get(panel.angle, panel.angle.replace("_", "-"))
+        caption = f"{shot}, {angle}: {description}"
     ids = list(dict.fromkeys([*panel.character_ids, *(f.character_id for f in panel.figures)]))
     return ". ".join(
         [

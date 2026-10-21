@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 def test_registration(plugin: ModuleType) -> None:
-    assert len(plugin.NODE_CLASS_MAPPINGS) == 9
+    assert len(plugin.NODE_CLASS_MAPPINGS) == 10
     assert plugin.WEB_DIRECTORY == "./web"
     assert plugin.NODE_CLASS_MAPPINGS.keys() == plugin.NODE_DISPLAY_NAME_MAPPINGS.keys()
     for cls in plugin.NODE_CLASS_MAPPINGS.values():
@@ -89,7 +89,7 @@ def test_missing_core_has_actionable_error(plugin: ModuleType, monkeypatch: pyte
         return real_import(name, package)
 
     monkeypatch.setattr(adapter.importlib, "import_module", missing)
-    assert len(plugin.NODE_CLASS_MAPPINGS) == 9
+    assert len(plugin.NODE_CLASS_MAPPINGS) == 10
     with pytest.raises(RuntimeError, match=r"请先安装 soda-storyboard.*pip install"):
         plugin.NODE_CLASS_MAPPINGS["SodaLoadStoryboardPage"]().execute("unused", "p1")
 
@@ -112,7 +112,7 @@ def test_import_without_core(plugin: ModuleType, monkeypatch: pytest.MonkeyPatch
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
-    assert len(module.NODE_CLASS_MAPPINGS) == 9
+    assert len(module.NODE_CLASS_MAPPINGS) == 10
 
 
 def test_crop_paste_roundtrip(plugin: ModuleType, page_info: str) -> None:

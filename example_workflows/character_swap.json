@@ -1,6 +1,6 @@
 {
   "last_node_id": 18,
-  "last_link_id": 27,
+  "last_link_id": 29,
   "nodes": [
     {
       "id": 1,
@@ -47,13 +47,17 @@
           "name": "lora_name",
           "type": "STRING",
           "slot_index": 4,
-          "links": []
+          "links": [
+            28
+          ]
         },
         {
           "name": "lora_strength",
           "type": "FLOAT",
           "slot_index": 5,
-          "links": []
+          "links": [
+            29
+          ]
         },
         {
           "name": "negative",
@@ -113,14 +117,14 @@
         "Node name for S&R": "UNETLoader"
       },
       "widgets_values": [
-        "moss_image_sft.safetensors",
+        "MOSS-Image/MOSS-Image-SFT/moss_image_sft_int8_convrot.safetensors",
         "default"
       ]
     },
     {
       "id": 3,
-      "type": "LoraLoaderModelOnly",
-      "title": "只选择目标角色 LoRA",
+      "type": "SodaLoadStoryboardLoRA",
+      "title": "加载页面主角 LoRA（空名称自动跳过）",
       "pos": [
         360,
         430
@@ -137,11 +141,27 @@
           "name": "model",
           "type": "MODEL",
           "link": 1
+        },
+        {
+          "name": "lora_name",
+          "type": "STRING",
+          "link": 28,
+          "widget": {
+            "name": "lora_name"
+          }
+        },
+        {
+          "name": "strength",
+          "type": "FLOAT",
+          "link": 29,
+          "widget": {
+            "name": "strength"
+          }
         }
       ],
       "outputs": [
         {
-          "name": "MODEL",
+          "name": "model",
           "type": "MODEL",
           "slot_index": 0,
           "links": [
@@ -150,11 +170,11 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "LoraLoaderModelOnly"
+        "Node name for S&R": "SodaLoadStoryboardLoRA"
       },
       "widgets_values": [
-        "hero.safetensors",
-        1
+        "",
+        1.0
       ]
     },
     {
@@ -227,7 +247,7 @@
         "Node name for S&R": "CLIPLoader"
       },
       "widgets_values": [
-        "qwen3.5_9b.safetensors",
+        "qwen3.5_9b_w4a8_gptq.safetensors",
         "moss_image",
         "default"
       ]
@@ -425,7 +445,7 @@
     {
       "id": 10,
       "type": "SodaCharacterMask",
-      "title": "填写目标角色 id，与 LoRA 一致",
+      "title": "填写与所加载 LoRA 一致的目标角色 id",
       "pos": [
         720,
         1340
@@ -469,7 +489,7 @@
       "widgets_values": [
         "",
         "1",
-        "hero",
+        "",
         24,
         16,
         "格子"
@@ -1064,6 +1084,22 @@
       18,
       0,
       "IMAGE"
+    ],
+    [
+      28,
+      1,
+      4,
+      3,
+      1,
+      "STRING"
+    ],
+    [
+      29,
+      1,
+      5,
+      3,
+      2,
+      "FLOAT"
     ]
   ],
   "groups": [],

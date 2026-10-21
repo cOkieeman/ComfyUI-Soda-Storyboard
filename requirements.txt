@@ -1,1 +1,1 @@
-soda-storyboard @ git+https://github.com/cOkieeman/soda-storyboard@84a37f9
+soda-storyboard @ https://github.com/cOkieeman/soda-storyboard/releases/download/v0.3.1/soda_storyboard-0.3.1-py3-none-any.whl

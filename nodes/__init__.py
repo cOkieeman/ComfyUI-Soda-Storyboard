@@ -7,6 +7,7 @@ from .storyboard import (
     SodaExtractLayout,
     SodaLetterPage,
     SodaLoadMossJSON,
+    SodaLoadStoryboardLoRA,
     SodaLoadStoryboardPage,
     SodaPastePanel,
     SodaStoryboardPreview,
@@ -16,6 +17,7 @@ NODE_CLASS_MAPPINGS = {
     cls.__name__: cls
     for cls in (
         SodaLoadStoryboardPage,
+        SodaLoadStoryboardLoRA,
         SodaLoadMossJSON,
         SodaStoryboardPreview,
         SodaCropPanel,
@@ -27,6 +29,7 @@ NODE_CLASS_MAPPINGS = {
     )
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "SodaLoadStoryboardLoRA": "加载分镜 LoRA · Load Storyboard LoRA",
     "SodaLoadStoryboardPage": "载入分镜页 · Load Storyboard Page",
     "SodaLoadMossJSON": "载入 MOSS JSON · Load MOSS JSON",
     "SodaStoryboardPreview": "分镜草稿图 · Storyboard Preview",

@@ -1,6 +1,6 @@
 {
   "last_node_id": 14,
-  "last_link_id": 20,
+  "last_link_id": 21,
   "nodes": [
     {
       "id": 1,
@@ -53,7 +53,9 @@
           "name": "lora_name",
           "type": "STRING",
           "slot_index": 4,
-          "links": []
+          "links": [
+            21
+          ]
         },
         {
           "name": "lora_strength",
@@ -121,14 +123,14 @@
         "Node name for S&R": "UNETLoader"
       },
       "widgets_values": [
-        "moss_image_sft.safetensors",
+        "MOSS-Image/MOSS-Image-SFT/moss_image_sft_int8_convrot.safetensors",
         "default"
       ]
     },
     {
       "id": 3,
-      "type": "LoraLoaderModelOnly",
-      "title": "选择主角 LoRA（无 LoRA 时旁路）",
+      "type": "SodaLoadStoryboardLoRA",
+      "title": "加载页面主角 LoRA（空名称自动跳过）",
       "pos": [
         360,
         430
@@ -147,17 +149,25 @@
           "link": 1
         },
         {
-          "name": "strength_model",
+          "name": "lora_name",
+          "type": "STRING",
+          "link": 21,
+          "widget": {
+            "name": "lora_name"
+          }
+        },
+        {
+          "name": "strength",
           "type": "FLOAT",
           "link": 2,
           "widget": {
-            "name": "strength_model"
+            "name": "strength"
           }
         }
       ],
       "outputs": [
         {
-          "name": "MODEL",
+          "name": "model",
           "type": "MODEL",
           "slot_index": 0,
           "links": [
@@ -166,11 +176,11 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "LoraLoaderModelOnly"
+        "Node name for S&R": "SodaLoadStoryboardLoRA"
       },
       "widgets_values": [
-        "hero.safetensors",
-        1
+        "",
+        1.0
       ]
     },
     {
@@ -243,7 +253,7 @@
         "Node name for S&R": "CLIPLoader"
       },
       "widgets_values": [
-        "qwen3.5_9b.safetensors",
+        "qwen3.5_9b_w4a8_gptq.safetensors",
         "moss_image",
         "default"
       ]
@@ -671,7 +681,7 @@
       1,
       5,
       3,
-      1,
+      2,
       "FLOAT"
     ],
     [
@@ -817,6 +827,14 @@
       14,
       0,
       "IMAGE"
+    ],
+    [
+      21,
+      1,
+      4,
+      3,
+      1,
+      "STRING"
     ]
   ],
   "groups": [],

@@ -1,8 +1,9 @@
-"""The nine ComfyUI nodes, callable without a running PromptServer."""
+"""Storyboard ComfyUI nodes, callable without a running PromptServer."""
 
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -51,6 +52,38 @@ def image_inputs() -> dict:
 class SodaNode:
     CATEGORY = "Soda Storyboard"
     FUNCTION = "execute"
+
+
+class SodaLoadStoryboardLoRA(SodaNode):
+    RETURN_TYPES = ("MODEL",)
+    RETURN_NAMES = ("model",)
+    DESCRIPTION = "接收分镜页的 LoRA 相对路径和强度；名称为空时原样返回模型。一次只加载一个人物 LoRA。"
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict:
+        return {
+            "required": {
+                "model": ("MODEL",),
+                "lora_name": string(),
+                "strength": ("FLOAT", {"default": 1.0, "min": -100.0, "max": 100.0, "step": 0.01}),
+            }
+        }
+
+    def execute(self, model: Any, lora_name: str, strength: float = 1.0) -> tuple:
+        name = lora_name.strip()
+        if not name:
+            return (model,)
+        name = relative_lora(name)
+        folders = importlib.import_module("folder_paths")
+        path = folders.get_full_path("loras", name)
+        if not path or not Path(path).is_file():
+            msg = f"找不到 LoRA 文件：{name}，请检查 ComfyUI models/loras 及角色卡 lora.path"
+            raise ValueError(msg)
+        utils = importlib.import_module("comfy.utils")
+        sd = importlib.import_module("comfy.sd")
+        weights = utils.load_torch_file(path, safe_load=True)
+        patched, _ = sd.load_lora_for_models(model, None, weights, strength, 0.0)
+        return (patched,)
 
 
 class SodaLoadStoryboardPage(SodaNode):
@@ -192,6 +225,7 @@ class SodaCropPanel(SodaNode):
 class SodaCharacterMask(SodaNode):
     RETURN_TYPES = ("MASK",)
     RETURN_NAMES = ("mask",)
+    DESCRIPTION = "格子：输入切出的单格，遮罩缩放到单格尺寸。整页：输入完整页面，遮罩按页面坐标放置。"
 
     @classmethod
     def INPUT_TYPES(cls) -> dict:
@@ -202,7 +236,7 @@ class SodaCharacterMask(SodaNode):
                 "character_id": string(),
                 "margin": ("INT", {"default": 24, "min": 0, "max": 512}),
                 "feather": ("INT", {"default": 16, "min": 0, "max": 256}),
-                "scope": (["格子", "整页"],),
+                "scope": (["格子", "整页"], {"default": "格子", "tooltip": cls.DESCRIPTION}),
             }
         }
 
