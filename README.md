@@ -5,18 +5,18 @@
 ## 第一次使用：三步跑通
 
 1. 装好节点包和核心库 wheel，重启 ComfyUI。
-2. 在 Codex / Claude 插件里导出 `<页id>.storyboard.json` 分镜包。核心库的 `export-bundle` 命令由后续版本提供；在它发布前，本版本也能直接读现有单页分镜 JSON，或读下文格式的手工分镜包。
+2. 在 Codex / Claude 插件里导出 `<页id>.storyboard.json` 分镜包，或运行核心库 0.4.0 的 `soda-storyboard export-bundle <项目>/pages/<页id>.json --json`。也支持现有单页分镜 JSON 和下文格式的手工分镜包。
 3. 打开 `example_workflows/minimal_page.json` 模板，将分镜文件拖到模板导入节点的预览区域（或点“上传”），即可复用原连线。检查节点内分镜图、MOSS 文本，按本机实际文件选择主模型、编码器、VAE 和需要的 LoRA，再点运行。无需 LoRA 时旁路原生 LoRA Loader。
 
 拖到空白画布会自动新建一个“导入分镜”节点；拖到已有导入节点的预览区或使用上传按钮则直接复用其连线。未选文件时显示“上传或拖入 .storyboard.json”和导入提示，自动刷新不会反复弹出错误窗口。
 
 节点默认约 420×720，预览随节点尺寸调整。点击“查看”或分镜图可打开大窗口，滚轮缩放、拖动平移，悬停逐格内容可高亮对应格子；Esc 或点击遮罩关闭。提示词支持复制和格式化。“高级”默认折叠，台词模式、斜切模式、触发词开关仍保存在原工作流输入中，宽高只在 MOSS JSON 的高级选项中出现。“另存为新分镜包”位于“⋯”菜单。链接项目和草稿节点使用同样的预览组件。
 
-本包要求 [soda-storyboard](https://github.com/cOkieeman/soda-storyboard) **0.3.1 或更高版本**，通过预构建 wheel 安装，不内置或复制核心库代码。讨论剧情、编写分镜单仍使用 Codex / Claude 插件。需要 Python 3.12+ 和支持 MOSS 的新版 ComfyUI。
+本包要求 [soda-storyboard](https://github.com/cOkieeman/soda-storyboard) **0.4.0 或更高版本**，通过预构建 wheel 安装，不内置或复制核心库代码。讨论剧情、编写分镜单仍使用 Codex / Claude 插件。需要 Python 3.12+ 和支持 MOSS 的新版 ComfyUI。
 
 ## 安装
 
-以下 wheel 地址暂按 **v0.3.1** 约定填写，发布者需在核心库 GitHub Release 中上传对应文件并确认版本；发布前下载可能返回 404。`requirements.txt` 与 `pyproject.toml` 使用同一 wheel URL。
+`requirements.txt` 与 `pyproject.toml` 使用核心库 **v0.4.0** 的同一 wheel URL。安装需要对应 Release 文件可下载；本轮开发验证使用本地源码路径依赖，未联网验证下载。
 
 ### ComfyUI Manager
 
@@ -33,7 +33,7 @@ https://github.com/cOkieeman/ComfyUI-Soda-Storyboard
 将本仓库放入 `ComfyUI/custom_nodes/ComfyUI-Soda-Storyboard`。在 portable 根目录，用内嵌解释器直接安装 wheel，然后重启 ComfyUI：
 
 ```powershell
-.\python_embeded\python.exe -m pip install --upgrade "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.3.1/soda_storyboard-0.3.1-py3-none-any.whl"
+.\python_embeded\python.exe -m pip install --upgrade "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.0/soda_storyboard-0.4.0-py3-none-any.whl"
 ```
 
 也可以使用已经指向同一 wheel 的依赖文件：
@@ -54,7 +54,7 @@ python -m pip install --upgrade -r requirements.txt
 
 随后重启 ComfyUI。torch、numpy 使用 ComfyUI 环境提供的版本；Pillow 是核心库的依赖，本包不会主动安装另一套 torch。wheel 依赖安装不要求 Git 构建核心库。
 
-未装核心库时十一个节点仍注册，需要核心库的节点运行时提示“请先安装 soda-storyboard：pip install -r requirements.txt”。启动时若检测到核心库低于 0.3.1，会在 ComfyUI 控制台输出一行升级提示，节点包继续加载。加载分镜 LoRA 节点只依赖 ComfyUI 运行时，空名称直接返回输入模型。
+未装核心库时十一个节点仍注册，需要核心库的节点运行时提示“请先安装 soda-storyboard：pip install -r requirements.txt”。启动时若检测到核心库低于 0.4.0，会在 ComfyUI 控制台输出含便携版内嵌 Python 和完整 wheel URL 的升级命令，节点包继续加载。加载分镜 LoRA 节点只依赖 ComfyUI 运行时，空名称直接返回输入模型。
 
 ## 导入与链接的区别
 
@@ -62,7 +62,11 @@ python -m pip install --upgrade -r requirements.txt
 
 - 分镜包：`format` 为 `soda-storyboard-bundle-v1`，包含 `project` 项目设置、`page` 完整分镜单、`characters`（角色 id 到完整角色卡的映射），以及可选的 `exported_at` 和 `sketch_png_base64`。页面显式设置优先于项目默认设置。
 - 单独分镜单：包含 `panels`，没有角色卡也能编译；节点会提示“未包含角色卡，LoRA 和外观描述缺失”。
-- MOSS JSON：包含 `summary` 和 `items`，保持原始提示词。物件、角色、文字使用绿、蓝、橙色框并配图例；文字优先显示 `text`，按框的长宽横排或竖排。缺少画布尺寸时，从 bbox 范围推断比例并匹配常用尺寸，节点会提示推断值。高级宽高填 `0` 为自动，正数优先于文件尺寸；旧工作流已有的正数仍视为手动覆盖，改回 `0` 即可使用自动推断。支持绝对中心坐标、左上角绝对坐标和 0～1 归一化坐标，bbox 顺序支持 yxyx / xyxy。
+- MOSS JSON：包含 `summary` 和 `items`，保持原始提示词。物件、角色、文字使用绿、蓝、橙色框并配图例；文字优先显示 `text`，按框的长宽横排或竖排。尺寸推断、格子识别和单画布判断统一使用核心库 `canvas_sizes` / `importers.import_moss`。高级宽高填 `0` 为自动，正数优先于文件尺寸；旧工作流已有的正数仍视为手动覆盖。支持核心库的中心、左上角、0～1、0～1000 坐标及 yxyx / xyxy / xywh 格式。无法识别的条目由核心报告，原始 JSON 仍保留。
+
+分镜包和分镜单通过核心库 `bundle.load_bundle` / `compile_bundle` 读取、继承默认值和编译。节点显示编译 warnings 中的英文译文状态：新鲜 / 过期 / 缺失；混合状态同时列出过期和缺失格数，详细原因保留在提示中。没有译文警告时显示“新鲜”（包括手动覆盖或原样保留的 caption）；节点不另算翻译缓存哈希。提示词标签页默认原样显示实际 `moss_json` 输出，格式化只改变显示空白。旧 `caption_en` 是否生效由核心库的 `use_custom_caption` / `legacy_caption_en` 规则决定；需要手动覆盖时请显式开启。
+
+格子识别采用核心库 0.4.0 的启发式规则：含“格”的描述（例如“水墨风格的背景”）可能识别为格子，包含整页背景的大框也可能影响平铺识别。节点不再额外修正规则，复杂外来布局仍需核对预览。
 
 MOSS 的格子来自含 panel / 格 / コマ 的物件说明，或多个基本平铺、互不包含的大物件框；这只是显示用的启发式识别，不会重写提示词。识别出格子时按格列出，没有时显示“单画布”，查看器切换为“条目”，按文字、角色、物件分组，悬停可高亮对应框。归一化坐标和空条目无法单独推断原始比例，自动回退为 1024×1536，并保留尺寸推断提示。
 
@@ -160,29 +164,36 @@ characters/
 
 ## 开发与验证
 
-核心库 wheel 发布且 URL 确认后，运行 `uv lock` 生成新的锁文件，再执行以下命令。旧的 Git 源码依赖锁文件已移除，避免继续拉取旧版本。wheel 发布前可使用下方离线验证方式。
+联网安装开发依赖后可执行以下检查；离线验证使用后面的本地路径依赖流程。
 
 ```powershell
 uv sync --group dev
 uv run ruff format --check .
 uv run ruff check .
 uv run pytest
-node --test tests/test_web.mjs
+node --test tests/*.mjs
 ```
 
-离线开发可借用已经安装 pytest / ruff / Pillow 的解释器，设置 `PYTHONPATH` 指向本地核心库的 `src`，无需安装核心库或访问网络：
+离线开发将两个仓库放在同一父目录，在节点仓库中用已有 pytest / ruff / Pillow 的 `.venv`，将 `PYTHONPATH` 指向核心库 0.4.0 的 `src`。这是本地路径依赖，绕过 wheel 解析，不写入核心仓库，也不修改 ComfyUI 的 Python。首次准备环境需要预先提供依赖；以下命令均不访问网络：
 
 ```powershell
 $env:PYTHONPATH = (Resolve-Path ..\soda-storyboard\src).Path
 $env:PYTHONDONTWRITEBYTECODE = '1'
-python -m pytest
+$env:PYTHONIOENCODING = 'utf-8'
+uv run --offline --no-project --python .venv\Scripts\python.exe -c "import soda_storyboard.bundle as b; print(b.__file__)"
+uv run --offline --no-project --python .venv\Scripts\python.exe -m ruff format --check .
+uv run --offline --no-project --python .venv\Scripts\python.exe -m ruff check .
+uv run --offline --no-project --python .venv\Scripts\python.exe -m pytest -ra
+node --test tests/*.mjs
 ```
 
 可选设置 `COMFYUI_SOURCE` 为只读 ComfyUI 源码目录，让测试对照真实类名检查工作流。缺少 torch 时跳过张量及 batch 形状测试，PIL 几何、编译、文字保护、草稿、参考图识别、路由访问控制与模拟编辑器生命周期测试照常运行。前端测试使用 Node 内置测试器和模拟 DOM/API；未启动真实服务或提交生成任务。pytest 的 `confcutdir=tests` 避免带连字符的仓库名被按裸 `__init__` 收集。
 
+本轮还通过临时只读代理加载真实 ComfyUI 前端，验证三种译文状态、节点及大窗口的提示词原样显示、格式化往返、复制和窄节点布局；未提交生成任务。
+
 ## English
 
-Drop a storyboard bundle, bare page JSON or MOSS layout JSON into ComfyUI. The unified Load Storyboard node shows a draft and the exact final MOSS JSON before execution, with copy/format controls. Edit an imported working copy in the local sidebar, then save a new bundle; advanced project linking stays in sync with local files. LoRA metadata is advisory: default examples use the native loader with manual selection. Trigger words are optional; appearance descriptions remain. Requires Python 3.12+, a MOSS-capable ComfyUI and the prebuilt soda-storyboard 0.3.1+ wheel (Release URL pending publication). The core bundle-export command is forthcoming; bare pages and manually built bundles already work. Model paths must be selected from your own installation. Editor routes accept loopback, same-origin requests only.
+Drop a storyboard bundle, bare page JSON or MOSS layout JSON into ComfyUI. The unified Load Storyboard node shows a draft and the exact final MOSS JSON before execution, with copy/format controls and translation freshness warnings. Core 0.4.0 public bundle/import APIs own compilation, canvas inference and panel detection. Export real bundles with `soda-storyboard export-bundle <page.json> --json`. Edit an imported working copy in the local sidebar, then save a new bundle; advanced project linking stays in sync with local files. LoRA metadata is advisory: default examples use the native loader with manual selection. Requires Python 3.12+, a MOSS-capable ComfyUI and the prebuilt soda-storyboard 0.4.0+ wheel. Model paths must be selected from your own installation. Editor routes accept loopback, same-origin requests only. The offline development commands above use a sibling core checkout as a read-only Python path dependency.
 
 ## License
 

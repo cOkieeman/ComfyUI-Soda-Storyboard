@@ -114,7 +114,7 @@ export function openStoryboardViewer(options = {}) {
     let drag;
     let selected = null;
     let hovered = null;
-    let formatted = true;
+    let formatted = false;
     let currentTab = "panels";
     let backgroundPointer = false;
     let view = { mode: "fit", zoom: 1, panX: 0, panY: 0 };
@@ -194,7 +194,7 @@ export function openStoryboardViewer(options = {}) {
     }
     const promptTools = element("div", "soda-sv-prompt-tools");
     const copy = element("button", "", "复制");
-    const format = element("button", "", "压缩");
+    const format = element("button", "", "格式化");
     const copyStatus = element("span", "soda-sv-copy-status");
     copyStatus.setAttribute("role", "status");
     copyStatus.setAttribute("aria-live", "polite");
@@ -280,9 +280,9 @@ export function openStoryboardViewer(options = {}) {
     };
     const renderPrompt = () => {
         const raw = String(model?.prompt || "");
-        try { prompt.value = raw ? JSON.stringify(JSON.parse(raw), null, formatted ? 2 : 0) : ""; }
+        try { prompt.value = formatted && raw ? JSON.stringify(JSON.parse(raw), null, 2) : raw; }
         catch { prompt.value = raw; }
-        format.textContent = formatted ? "压缩" : "格式化";
+        format.textContent = formatted ? "原始输出" : "格式化";
         copy.disabled = !raw;
         format.disabled = !raw;
     };
@@ -380,7 +380,7 @@ export function openStoryboardViewer(options = {}) {
         warnings.hidden = !warnings.childElementCount;
         edit.hidden = typeof settings.onEdit !== "function";
         copyStatus.textContent = "";
-        formatted = true;
+        formatted = false;
         selected = null; hovered = null; drag = undefined;
         view = { mode: "fit", zoom: 1, panX: 0, panY: 0 };
         const source = String(model.image || "");

@@ -37,6 +37,7 @@ def project(tmp_path: Path) -> Path:
                 "id": identifier,
                 "display_name": identifier,
                 "appearance_en": "a young traveler",
+                "appearance_zh": "年轻的旅人",
                 "trigger_words": [f"person_{identifier}"],
                 "lora": {"path": f"characters/{identifier}.safetensors", "strength": 0.8},
             },

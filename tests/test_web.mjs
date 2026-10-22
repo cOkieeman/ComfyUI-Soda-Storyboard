@@ -185,8 +185,13 @@ test("polling editor saves updates both draft and final JSON before execution", 
     revision = "saved-revision"; node._sodaTimer.fn(); await settle();
     assert.notEqual(node._sodaView.draft.src, before);
     assert.equal(JSON.parse(node._sodaView.prompt.value).summary.caption, "saved-revision");
+    assert.equal(node._sodaView.prompt.value, node._sodaMeta.moss_json);
+    await node._sodaView.toggle.onclick();
+    assert(node._sodaView.prompt.value.includes("\n"));
+    assert.deepEqual(JSON.parse(node._sodaView.prompt.value), JSON.parse(node._sodaMeta.moss_json));
     await node._sodaView.toggle.onclick();
     assert(!node._sodaView.prompt.value.includes("\n"));
+    assert.equal(node._sodaView.prompt.value, node._sodaMeta.moss_json);
     await node._sodaView.copy.onclick();
     assert(calls.some(call => call.clipboard === node._sodaView.prompt.value));
     node._sodaView.root.clientHeight = 1100;
@@ -302,7 +307,7 @@ test("linked and draft nodes share the preview component and upstream parsed met
     assert.equal(node._sodaMeta, source._sodaMeta);
     assert.equal(node._sodaView.root.className, source._sodaView.root.className);
     assert.equal(node._sodaView.draft.src, source._sodaView.draft.src);
-    assert.equal(node._sodaView.prompt.value, JSON.stringify(JSON.parse(source._sodaMeta.moss_json), null, 2));
+    assert.equal(node._sodaView.prompt.value, source._sodaMeta.moss_json);
     assert.equal(node._sodaView.prompt.readOnly, true);
     assert.equal(node._sodaView.select.hidden, true);
     assert.equal(node._sodaView.advancedButton.hidden, true);

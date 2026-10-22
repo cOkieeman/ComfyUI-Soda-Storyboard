@@ -126,14 +126,14 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
     prompt.setAttribute("aria-label", "最终 MOSS 提示词（只读）");
     const tools = document.createElement("div");
     tools.className = "soda-prompt-tools";
-    let formatted = true;
+    let formatted = false;
     const renderText = () => {
         const text = node._sodaMeta?.moss_json || "";
-        try { prompt.value = text ? JSON.stringify(JSON.parse(text), null, formatted ? 2 : 0) : ""; }
+        try { prompt.value = formatted && text ? JSON.stringify(JSON.parse(text), null, 2) : text; }
         catch { prompt.value = text; }
     };
     const copy = button("复制", async () => { await navigator.clipboard.writeText(prompt.value); });
-    const toggle = button("压缩", () => { formatted = !formatted; toggle.textContent = formatted ? "压缩" : "格式化"; renderText(); });
+    const toggle = button("格式化", () => { formatted = !formatted; toggle.textContent = formatted ? "原始输出" : "格式化"; renderText(); });
     tools.append(copy, toggle);
     promptPane.append(tools, prompt);
     const list = document.createElement("ol");

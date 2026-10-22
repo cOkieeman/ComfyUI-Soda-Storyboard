@@ -12,9 +12,17 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .bundles import BUNDLE_FORMAT, compile_result, decode_json, describe, parse_bundle, validate_moss
+from .bundles import (
+    BUNDLE_FORMAT,
+    compile_page_bundle,
+    decode_json,
+    describe,
+    parse_bundle,
+    result_outputs,
+    validate_moss,
+)
 from .core import NEGATIVE, core, dumps, info, resolution
-from .moss import COLORS, analyze_layout, boxes, item_text, resolve_dimensions, text_direction
+from .moss import COLORS, analyze_layout, boxes, import_page, item_text, resolve_dimensions, text_direction
 
 MIN_LABEL_SIZE = 8
 MAX_FONT_SIZE = 24
@@ -46,49 +54,7 @@ def moss_boxes(value: dict, width: int, height: int) -> list[tuple[dict, tuple]]
 
 
 def moss_page(value: dict, width: int, height: int) -> Any:
-    panels, texts = [], []
-    for index, (item, box) in enumerate(moss_boxes(value, width, height), 1):
-        x, y, right, bottom = box
-        if right <= x or bottom <= y:
-            continue
-        shape = {"type": "rect", "x": x, "y": y, "w": right - x, "h": bottom - y}
-        label = item.get("label", "object")
-        if label == "text":
-            texts.append(
-                {
-                    "id": f"text-{index}",
-                    "text": str(item.get("text", "")),
-                    "bbox": {key: shape[key] for key in ("x", "y", "w", "h")},
-                    "kind": "dialogue",
-                    "bubble": "box",
-                    "direction": "horizontal",
-                }
-            )
-        elif label in {"object", "panel"}:
-            panels.append(
-                {
-                    "id": f"panel-{index}",
-                    "order": len(panels) + 1,
-                    "shape": shape,
-                    "description": str(item.get("caption", "")),
-                    "caption_en": str(item.get("caption", "")),
-                }
-            )
-    if not panels:
-        panels = [
-            {"id": "panel-1", "order": 1, "shape": {"type": "rect", "x": 0, "y": 0, "w": width, "h": height}}
-        ]
-    return core("models").Page.from_dict(
-        {
-            "id": "imported",
-            "canvas_width": width,
-            "canvas_height": height,
-            "panel_gap": 0,
-            "panels": panels,
-            "texts": texts,
-            "style_prompt": str(value["summary"].get("caption", "")),
-        }
-    )
+    return import_page(value, width, height)[0]
 
 
 def text_lines(text: str, font: Any, width: int) -> list[str]:
@@ -184,8 +150,11 @@ def inspect_page(
     include_triggers: bool = True,
     draft: Image.Image | None = None,
 ) -> dict:
-    result = compile_result(page, cards, slant_mode, include_triggers=include_triggers)
-    metadata = describe(page, cards, warnings)
+    compiled = compile_page_bundle(page, cards, slant_mode, include_triggers=include_triggers)
+    result = result_outputs(page, cards, compiled, include_triggers=include_triggers)
+    metadata = describe(
+        page, cards, list(dict.fromkeys([*warnings, *compiled["warnings"]])), compiled=compiled
+    )
     metadata.update(
         moss_json=result[0],
         width=result[1],
@@ -214,7 +183,7 @@ def inspect_payload(
         validate_moss(value)
         width, height, inferred = resolve_dimensions(value, width, height)
         layout = analyze_layout(value, width, height)
-        text_count = sum(item.get("label") == "text" for item in value["items"])
+        text_count = layout["report"]["text_count"]
         layout_label = f"{len(layout['panels'])} 格" if layout["panels"] else "单画布"
         page = moss_page(value, width, height)
         result = (dumps(value), width, height, resolution(width, height), "", 0.0, NEGATIVE, info(page, {}))
@@ -245,6 +214,13 @@ def inspect_payload(
             draft_png_base64=png_base64(moss_preview(value, width, height)),
             warnings=[
                 *([f"画布尺寸为推断值：{width}×{height}"] if inferred else []),
+                *layout["report"]["guesses"],
+                *layout["report"]["warnings"],
+                *(
+                    [f"{len(layout['report']['unrecognized_items'])} 个条目无法识别，原始 JSON 已保留。"]
+                    if layout["report"]["unrecognized_items"]
+                    else []
+                ),
                 "MOSS JSON 转为分镜单是近似转换，请检查格子和文字位置。",
             ],
         )

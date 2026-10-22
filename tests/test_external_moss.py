@@ -5,6 +5,8 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
+from soda_storyboard.canvas_sizes import infer_dimensions
+from soda_storyboard.importers import import_moss
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -83,7 +85,7 @@ def test_detection_distinguishes_panels_from_livestream_objects(moss: ModuleType
     assert len(layout["items"]) == 5
 
 
-def test_detection_uses_tiling_and_rejects_containing_backgrounds(moss: ModuleType) -> None:
+def test_detection_of_containing_background_follows_core(moss: ModuleType) -> None:
     value = {
         "items": [
             {"label": "object", "caption": "背景", "bbox": [-750, -500, 750, 500]},
@@ -92,7 +94,8 @@ def test_detection_uses_tiling_and_rejects_containing_backgrounds(moss: ModuleTy
         ]
     }
     layout = moss.analyze_layout(value, 1024, 1536)
-    assert [panel["item_id"] for panel in layout["panels"]] == ["item-3", "item-2"]
+    page, _ = import_moss(value)
+    assert [panel["id"] for panel in layout["panels"]] == [panel.id for panel in page.panels]
     value["items"] = value["items"][:1]
     assert moss.analyze_layout(value, 1024, 1536)["single_canvas"] is True
 
@@ -105,9 +108,10 @@ def test_real_text_and_orientation(moss: ModuleType) -> None:
     assert moss.text_direction((0, 0, 200, 60)) == "horizontal"
 
 
-def test_a_style_description_is_not_a_panel(moss: ModuleType) -> None:
+def test_ambiguous_panel_word_follows_core(moss: ModuleType) -> None:
     value = {"items": [{"label": "object", "caption": "水墨风格的背景", "bbox": [-700, -450, 700, 450]}]}
-    assert moss.analyze_layout(value, 1024, 1536)["single_canvas"] is True
+    page, _ = import_moss(value)
+    assert moss.analyze_layout(value, 1024, 1536)["single_canvas"] == (page.extra["canvas_mode"] == "single")
 
 
 def test_preview_draws_chinese_text_instead_of_english_caption(
@@ -139,9 +143,30 @@ def test_preview_draws_chinese_text_instead_of_english_caption(
 
 
 @pytest.mark.parametrize("item", [None, "bad", {"bbox": [0, 0, 0, 0]}, {"bbox": [0, 0, float("nan"), 20]}])
-def test_bad_boxes_raise_a_validation_error(moss: ModuleType, item: object) -> None:
-    with pytest.raises(ValueError, match="bbox"):
-        moss.resolve_dimensions({"items": [item]})
+def test_bad_boxes_are_reported_and_preserved_by_core(moss: ModuleType, item: object) -> None:
+    value = {"items": [item]}
+    assert moss.resolve_dimensions(value)[:2] == infer_dimensions(value)
+    layout = moss.analyze_layout(value, 1024, 1536)
+    assert layout["report"]["unrecognized_items"]
+    assert layout["items"][0]["shape"] is None
+    assert moss.boxes(value, 1024, 1536) == []
+
+
+@pytest.mark.parametrize("sample", [two_panels, livestream])
+def test_external_samples_match_core(moss: ModuleType, plugin: ModuleType, sample: object) -> None:
+    value = sample()
+    page, report = import_moss(value)
+    assert moss.resolve_dimensions(value)[:2] == page.canvas_size == infer_dimensions(value)
+    layout = moss.analyze_layout(value, *page.canvas_size)
+    assert [panel["shape"] for panel in layout["panels"]] == [panel.shape for panel in page.panels]
+    assert [panel["id"] for panel in layout["panels"]] == [panel.id for panel in page.panels]
+    assert layout["single_canvas"] == (page.extra["canvas_mode"] == "single")
+    assert len(layout["panels"]) == report["panel_count"]
+    importing = importlib.import_module(f"{plugin.__name__}.nodes.importing")
+    metadata = importing.inspect_payload(json.dumps(value).encode())
+    effective_page, _ = import_moss({**value, "canvas_width": page.width, "canvas_height": page.height})
+    assert json.loads(metadata["page_info"])["page"] == effective_page.to_dict()
+    assert json.loads(metadata["moss_json"]) == value
 
 
 def test_inspection_preserves_moss_and_reports_inference(plugin: ModuleType) -> None:
@@ -168,6 +193,19 @@ def test_single_canvas_does_not_invent_preview_panels(plugin: ModuleType) -> Non
     assert result["panel_count"] == 0
     assert result["single_canvas"] is True
     assert result["text_count"] == 2
+
+
+def test_inspection_keeps_unrecognized_entries_without_breaking_preview(plugin: ModuleType) -> None:
+    importing = importlib.import_module(f"{plugin.__name__}.nodes.importing")
+    value = livestream()
+    value["items"].extend([None, "unknown", {"label": "text", "bbox": [0, 0, 0, 0]}])
+    _, report = import_moss(value)
+    metadata = importing.inspect_payload(json.dumps(value).encode())
+    assert metadata["text_count"] == report["text_count"]
+    assert len(metadata["moss_layout"]["report"]["unrecognized_items"]) == 3
+    assert any("3 个条目无法识别" in warning for warning in metadata["warnings"])
+    assert json.loads(metadata["moss_json"]) == value
+    assert metadata["draft_png_base64"]
 
 
 def test_new_import_nodes_default_to_automatic_dimensions(plugin: ModuleType) -> None:

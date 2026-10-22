@@ -159,8 +159,8 @@ def test_triggers_are_optional_appearance_is_not(imports: SimpleNamespace) -> No
     for key in ("a", "b"):
         assert f"person_{key}" in enabled["moss_json"]
         assert f"person_{key}" not in disabled["moss_json"]
-    assert "a young traveler" in enabled["moss_json"]
-    assert "a young traveler" in disabled["moss_json"]
+    assert "年轻的旅人" in enabled["moss_json"]
+    assert "年轻的旅人" in disabled["moss_json"]
     assert disabled["result"][4:6] == enabled["result"][4:6]
     assert imports.bundle["characters"]["a"]["trigger_words"] == ["person_a"]
 
@@ -231,6 +231,7 @@ def test_editor_save_refreshes_preview_prompt_and_hash(imports: SimpleNamespace,
     page_path = root / "pages" / f"{page_id}.json"
     page = json.loads(page_path.read_text(encoding="utf-8"))
     page["panels"][0]["caption_en"] = "A changed scene with a lantern"
+    page["panels"][0]["use_custom_caption"] = True
     page["panels"][0]["figures"][0]["pose"] = "sit"
     page_path.write_text(json.dumps(page), encoding="utf-8")
     after = workspaces.inspect_import(name)

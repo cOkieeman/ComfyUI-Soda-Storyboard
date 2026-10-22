@@ -6,7 +6,11 @@ import importlib
 import logging
 from importlib import metadata
 
-MIN_CORE_VERSION = "0.3.1"
+MIN_CORE_VERSION = "0.4.0"
+CORE_WHEEL_URL = (
+    "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.0/"
+    "soda_storyboard-0.4.0-py3-none-any.whl"
+)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -24,8 +28,9 @@ def check_core_version() -> None:
         outdated = True
     if outdated:
         LOGGER.warning(
-            "Soda Storyboard: soda-storyboard %s 需要升级至 >=%s; 请在节点包目录用 ComfyUI Python "
-            "运行 python -m pip install --upgrade -r requirements.txt",
+            "Soda Storyboard: soda-storyboard %s 需要升级至 >=%s; 在便携版根目录运行 "
+            '.\\python_embeded\\python.exe -m pip install --upgrade "%s"; 然后重启 ComfyUI',
             installed,
             MIN_CORE_VERSION,
+            CORE_WHEEL_URL,
         )

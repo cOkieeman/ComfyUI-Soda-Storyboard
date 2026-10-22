@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import base64
-import binascii
-import copy
 import hashlib
 import importlib
 import io
@@ -15,14 +13,12 @@ from typing import Any
 
 from PIL import Image
 
-from .core import NEGATIVE, core, dumps, info, inside, relative_lora, resolution
+from .core import NEGATIVE, core, dialogue_override, dumps, info, inside, relative_lora, resolution
 
 BUNDLE_FORMAT = "soda-storyboard-bundle-v1"
 EMPTY_FILE = "上传或拖入 .storyboard.json"
 EMPTY_MOSS = "上传或拖入 .moss.json"
 MAX_FILE_BYTES = 16 * 1024 * 1024
-MAX_SKETCH_BYTES = 2 * 1024 * 1024
-MAX_SKETCH_PIXELS = 4_000_000
 MISSING_CHARACTERS = "未包含角色卡，LoRA 和外观描述缺失"
 
 
@@ -67,99 +63,22 @@ def decode_json(payload: bytes) -> dict:
 
 
 def sketch_thumbnail(encoded: str) -> str:
+    """Resize a PNG already validated by the core load_bundle boundary."""
     if not encoded:
         return ""
-    if not isinstance(encoded, str) or len(encoded) > MAX_SKETCH_BYTES * 2:
-        msg = "草稿缩略图无效或超过大小限制"
-        raise ValueError(msg)
-    try:
-        payload = base64.b64decode(encoded, validate=True)
-        with Image.open(io.BytesIO(payload)) as source:
-            _check_sketch(source, len(payload))
-            source.thumbnail((512, 512))
-            output = io.BytesIO()
-            source.convert("RGB").save(output, format="PNG")
-            return base64.b64encode(output.getvalue()).decode("ascii")
-    except (OSError, ValueError, binascii.Error, Image.DecompressionBombError) as exc:
-        msg = f"草稿缩略图损坏：{exc}"
-        raise ValueError(msg) from exc
-
-
-def _check_sketch(source: Image.Image, byte_count: int) -> None:
-    if (
-        byte_count > MAX_SKETCH_BYTES
-        or source.format != "PNG"
-        or source.width * source.height > MAX_SKETCH_PIXELS
-    ):
-        msg = "草稿缩略图必须为不超过 2 MiB、400 万像素的 PNG"
-        raise ValueError(msg)
-
-
-def page_defaults(raw: dict, settings: dict) -> dict:
-    project = core("models").Project.from_dict(settings)
-    defaults = {
-        "canvas_width": project.default_canvas_width,
-        "canvas_height": project.default_canvas_height,
-        "reading_direction": project.reading_direction,
-        "style_prefix": project.default_style_prefix,
-        "dialogue_mode": project.default_dialogue_mode,
-        "text_direction": project.text_direction,
-        "color_mode": project.color_mode,
-        "style_prompt": project.style_prompt,
-        "tags": project.tags,
-    }
-    # Respect page aliases too: a page's explicit canvas/style/direction wins.
-    aliases = {
-        "canvas_width": ("width", "canvas", "canvas_size"),
-        "canvas_height": ("height", "canvas", "canvas_size"),
-        "reading_direction": ("direction",),
-        "style_prefix": ("style",),
-        "dialogue_mode": ("lettering_mode",),
-    }
-    result = dict(raw)
-    for key, value in defaults.items():
-        if key not in result and not any(alias in result for alias in aliases.get(key, ())):
-            result[key] = value
-    if not result.get("style_prompt"):
-        result["style_prompt"] = project.style_prompt
-    if not result.get("style_prefix") and not result.get("style"):
-        result["style_prefix"] = project.default_style_prefix
-    return result
+    with Image.open(io.BytesIO(base64.b64decode(encoded))) as source:
+        source.thumbnail((512, 512))
+        output = io.BytesIO()
+        source.convert("RGB").save(output, format="PNG")
+        return base64.b64encode(output.getvalue()).decode("ascii")
 
 
 def parse_bundle(value: dict, dialogue_mode: str = "跟随页面") -> tuple[Any, dict, list[str], str]:
-    models = core("models")
-    if value.get("format") == BUNDLE_FORMAT:
-        page, settings, characters = value.get("page"), value.get("project", {}), value.get("characters", {})
-        sketch = value.get("sketch_png_base64", "")
-    elif "panels" in value and value.get("format", "soda-storyboard-page-v1") in {
-        "soda-storyboard-page-v1",
-        "soda-storyboard/v1",
-        "",
-    }:
-        page, settings, characters, sketch = value, {}, {}, ""
-    else:
-        msg = "不是 soda-storyboard-bundle-v1 分镜包或单独分镜单"
-        raise ValueError(msg)
-    if not isinstance(page, dict) or not isinstance(settings, dict) or not isinstance(characters, dict):
-        msg = "分镜包的 page、project、characters 必须是对象"
-        raise TypeError(msg)
-    page = models.Page.from_dict(page_defaults(page, settings))
-    cards = {key: models.Character.from_dict(card) for key, card in characters.items()}
-    if any(key != card.id for key, card in cards.items()):
-        msg = "分镜包的角色 id 必须与角色卡 id 一致"
-        raise ValueError(msg)
-    modes = {"跟随页面": None, "MOSS 画字": "moss_text", "程序排字": "lettering"}
-    if dialogue_mode not in modes:
-        msg = "未知台词模式"
-        raise ValueError(msg)
-    if modes[dialogue_mode]:
-        page.dialogue_mode = modes[dialogue_mode]
-    report = core("validation").validate_page(page, cards).to_dict()
-    if report["errors"]:
-        msg = "分镜页校验失败：\n" + "\n".join(error["message"] for error in report["errors"])
-        raise ValueError(msg)
-    warnings = [] if cards else [MISSING_CHARACTERS]
+    page, cards, _, warnings = core("bundle").load_bundle(value)
+    mode = dialogue_override(dialogue_mode)
+    if mode:
+        page.dialogue_mode = mode
+    sketch = value.get("sketch_png_base64", "") if value.get("format") == BUNDLE_FORMAT else ""
     return page, cards, warnings, sketch_thumbnail(sketch)
 
 
@@ -171,37 +90,79 @@ def read_bundle(filename: str, dialogue_mode: str = "跟随页面") -> tuple:
     return parse_bundle(decode_json(path.read_bytes()), dialogue_mode)
 
 
-def compile_result(
+def compile_page_bundle(
     page: Any, characters: dict, slant_mode: str = "cut", *, include_triggers: bool = True
-) -> tuple:
-    generation_page, generation_cards = copy.deepcopy(page), copy.deepcopy(characters)
-    compiler = core("compiler")
-    if not include_triggers:
-        for card in generation_cards.values():
-            card.trigger_words = []
-    for panel in generation_page.panels:
-        if panel.caption_en:
-            ids = list(dict.fromkeys([*panel.character_ids, *(f.character_id for f in panel.figures)]))
-            details = "; ".join(compiler.character_caption(key, generation_cards) for key in ids)
-            if details:
-                panel.caption_en = f"{panel.caption_en}. {details}"
-    compiled = compiler.compile_page(generation_page, generation_cards, slant_mode=slant_mode)
-    lora = core("production.api").select_lora(page, characters) or {}
-    width, height = page.canvas_size
-    return (
-        dumps(compiled),
-        width,
-        height,
-        resolution(width, height),
-        relative_lora(lora.get("path", "")),
-        float(lora.get("strength", 0.0)),
-        NEGATIVE,
-        info(page, generation_cards),
+) -> dict:
+    return core("bundle").compile_bundle(
+        {
+            "format": BUNDLE_FORMAT,
+            "page": page.to_dict(),
+            "characters": {key: card.to_dict() for key, card in characters.items()},
+        }
+        if characters
+        else page.to_dict(),
+        slant_mode=slant_mode,
+        include_triggers=include_triggers,
     )
 
 
-def describe(page: Any, characters: dict, warnings: list[str], sketch: str = "") -> dict:
-    chosen = core("production.api").select_lora(page, characters) or {}
+def comfy_lora(compiled: dict, characters: dict) -> dict:
+    """Keep Comfy model subdirectories; selection belongs to compile_bundle."""
+    chosen = dict(compiled.get("lora") or {})
+    if chosen:
+        card = characters[chosen["character_id"]]
+        chosen["path"] = relative_lora(card.lora.path)
+    return chosen
+
+
+def result_outputs(page: Any, characters: dict, compiled: dict, *, include_triggers: bool = True) -> tuple:
+    chosen = comfy_lora(compiled, characters)
+    width, height = compiled["width"], compiled["height"]
+    cards = (
+        characters
+        if include_triggers
+        else {
+            key: core("models").Character.from_dict({**card.to_dict(), "trigger_words": []})
+            for key, card in characters.items()
+        }
+    )
+    return (
+        dumps(compiled["moss"]),
+        width,
+        height,
+        resolution(width, height),
+        chosen.get("path", ""),
+        float(chosen.get("strength", 0.0)),
+        NEGATIVE,
+        info(page, cards),
+    )
+
+
+def compile_result(
+    page: Any, characters: dict, slant_mode: str = "cut", *, include_triggers: bool = True
+) -> tuple:
+    compiled = compile_page_bundle(page, characters, slant_mode, include_triggers=include_triggers)
+    return result_outputs(page, characters, compiled, include_triggers=include_triggers)
+
+
+def translation_status(warnings: list[str]) -> dict:
+    # compile_bundle currently exposes strings, not validation issue codes.
+    # Ignore its aggregate TODO warning; only per-panel warnings carry status.
+    states = {}
+    for warning in warnings:
+        match = re.match(r"第 (\d+) 格英文译文(缺失|已过期)，", warning)
+        if match:
+            states[match[1]] = "missing" if match[2] == "缺失" else "stale"
+    return {
+        "state": "stale" if "stale" in states.values() else "missing" if states else "fresh",
+        "panels": states,
+    }
+
+
+def describe(
+    page: Any, characters: dict, warnings: list[str], sketch: str = "", *, compiled: dict | None = None
+) -> dict:
+    chosen = comfy_lora(compiled or {}, characters)
     texts = core("lettering").page_texts(page)
     dialogue_count = sum(t.kind == "dialogue" for t in texts)
     summary = f"{page.canvas_width}×{page.canvas_height} · {len(page.panels)} 格 · {dialogue_count} 句台词"
@@ -220,6 +181,7 @@ def describe(page: Any, characters: dict, warnings: list[str], sketch: str = "")
     return {
         "summary": summary,
         "warnings": warnings,
+        "translation_status": translation_status(compiled["warnings"]) if compiled is not None else None,
         "sketch_png_base64": sketch,
         "page_info": info(page, characters),
         "panel_count": len(page.panels),

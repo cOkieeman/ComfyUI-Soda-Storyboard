@@ -69,29 +69,31 @@ def content_hash(project_dir: str, page_id: str, *options: str) -> str:
 def load(project_dir: str, page_id: str, dialogue_mode: str = "跟随页面") -> tuple[Any, dict]:
     io = core("io")
     root = project_root(project_dir)
-    page = io.load_page(page_path(root, page_id))
     project_file = inside(root, "project.json")
-    if project_file.is_file():
-        from .bundles import page_defaults  # noqa: PLC0415 -- resolve the adapter cycle only during execution
-
-        page = core("models").Page.from_dict(
-            page_defaults(io.read_json(page_path(root, page_id)), io.read_json(project_file))
-        )
     character_dir = inside(root, "characters")
     for path in character_dir.glob("*.json"):
         inside(root, path.relative_to(root).as_posix())
     characters = io.load_characters(character_dir)
+    page, characters, _, _ = core("bundle").load_bundle(
+        {
+            "format": "soda-storyboard-bundle-v1",
+            "page": io.read_json(page_path(root, page_id)),
+            "project": io.read_json(project_file) if project_file.is_file() else {},
+            "characters": {key: card.to_dict() for key, card in characters.items()},
+        }
+    )
+    mode = dialogue_override(dialogue_mode)
+    if mode:
+        page.dialogue_mode = mode
+    return page, characters
+
+
+def dialogue_override(dialogue_mode: str) -> str | None:
     modes = {"跟随页面": None, "MOSS 画字": "moss_text", "程序排字": "lettering"}
     if dialogue_mode not in modes:
         msg = "未知台词模式"
         raise ValueError(msg)
-    if modes[dialogue_mode]:
-        page.dialogue_mode = modes[dialogue_mode]
-    report = core("validation").validate_page(page, characters).to_dict()
-    if report["errors"]:
-        msg = "分镜页校验失败：\n" + "\n".join(e["message"] for e in report["errors"])
-        raise ValueError(msg)
-    return page, characters
+    return modes[dialogue_mode]
 
 
 def info(page: Any, characters: dict) -> str:
@@ -148,7 +150,7 @@ def single_prompt(panel: Any, characters: dict) -> str:
                 "no gutters, no text, no speech bubbles"
             ),
             caption,
-            *(compiler.character_caption(identifier, characters) for identifier in ids),
+            *(compiler.character_caption(identifier, characters, language="en") for identifier in ids),
         ]
     )
 

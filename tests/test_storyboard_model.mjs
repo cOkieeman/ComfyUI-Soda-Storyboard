@@ -193,3 +193,14 @@ test("shared model exposes one consistent node/viewer document", () => {
     assert.deepEqual(model.tags, informationTags(metadata));
     assert.deepEqual(model.warnings, ["多角色提醒"]);
 });
+
+test("translation tags show core warning status and retain mixed counts", () => {
+    for (const [state, label] of [["fresh", "新鲜"], ["stale", "过期"], ["missing", "缺失"]]) {
+        const model = buildStoryboardModel({ translation_status: { state, panels: {} }, moss_json: '{"items":[]}' });
+        assert.equal(model.tags.find(tag => tag.id === "translation").label, `英文译文：${label}`);
+        assert.equal(model.prompt, '{"items":[]}');
+    }
+    const tags = informationTags({ translation_status: { state: "stale", panels: { "1": "stale", "2": "missing" } } });
+    assert.equal(tags.find(tag => tag.id === "translation").label, "英文译文：过期（1 格过期、1 格缺失）");
+    assert(!informationTags({ kind: "moss", translation_status: { state: "fresh" } }).some(tag => tag.id === "translation"));
+});

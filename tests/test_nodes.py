@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 from PIL import Image, ImageChops
-from soda_storyboard.compiler import compile_page
-from soda_storyboard.io import load_characters, load_page, write_json
+from soda_storyboard.bundle import compile_bundle
+from soda_storyboard.io import load_characters, write_json
 from soda_storyboard.models import Page
 
 if TYPE_CHECKING:
@@ -31,15 +31,19 @@ def test_compile_contract(plugin: ModuleType, project: Path, slant: str) -> None
     result = plugin.NODE_CLASS_MAPPINGS["SodaLoadStoryboardPage"]().execute(
         str(project), "p1", slant_mode=slant
     )
-    expected = compile_page(
-        load_page(project / "pages/p1.json"), load_characters(project / "characters"), slant_mode=slant
-    )
+    expected = compile_bundle(
+        {
+            "format": "soda-storyboard-bundle-v1",
+            "project": json.loads((project / "project.json").read_text(encoding="utf-8")),
+            "page": json.loads((project / "pages/p1.json").read_text(encoding="utf-8")),
+            "characters": {
+                key: card.to_dict() for key, card in load_characters(project / "characters").items()
+            },
+        },
+        slant_mode=slant,
+    )["moss"]
     actual = json.loads(result[0])
-    assert actual["summary"] == expected["summary"]
-    assert [item["bbox"] for item in actual["items"]] == [item["bbox"] for item in expected["items"]]
-    assert [item["label"] for item in actual["items"]] == [item["label"] for item in expected["items"]]
-    assert "a young traveler" in actual["items"][0]["caption"]
-    assert "person_a" in actual["items"][0]["caption"]
+    assert actual == expected
     assert result[1:3] == (320, 240)
     assert json.loads(result[3]) == {"version": 1, "width": 320, "height": 240}
     assert result[4:6] == (str(Path("characters") / "a.safetensors"), 0.8)
