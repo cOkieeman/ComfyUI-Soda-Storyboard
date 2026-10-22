@@ -1,0 +1,316 @@
+{
+  "format": "soda-storyboard-page-v1",
+  "id": "stretch-color",
+  "canvas_width": 1024,
+  "canvas_height": 1536,
+  "reading_direction": "rtl",
+  "panel_gap": 24,
+  "description": "演出后台，成年女主绯音在签完最后一张卡片后起身舒展，长发和礼服随动作舒展开来；她放松地笑着邀请门边的同伴喝点东西。",
+  "dialogue_mode": "lettering",
+  "color_mode": "color",
+  "text_direction": "vertical",
+  "style_prompt": "Fully colored polished 2D Japanese anime illustration comic, contemporary anime game key visual quality, exceptionally appealing refined anime faces, expressive jewel-like eyes, tiny delicate noses and soft lips, graceful adult anime proportions, clean elegant fine linework, sophisticated soft cel shading with smooth painterly gradients, luminous warm skin tones, rich wine-red silk and glossy black hair, warm golden vanity lights balanced with muted violet and cool blue background light, restrained sparkling jewelry highlights, cinematic depth and soft bokeh, coherent character design throughout the page, clear uncluttered panel compositions and clean pale gutters.",
+  "lora_character": "none",
+  "panels": [
+    {
+      "id": "p1",
+      "order": 1,
+      "shape": {
+        "type": "rect",
+        "x": 524.0,
+        "y": 50.400000000000006,
+        "w": 452.16,
+        "h": 298.56
+      },
+      "shot": "medium",
+      "angle": "eye",
+      "character_ids": [
+        "hiyone"
+      ],
+      "description": "签名卡片整齐叠在桌边，桌上有一支笔和打开的记事本。她坐在桌前，刚刚放下笔，抬起视线，露出结束工作后的轻松微笑。背景只有虚化的暖金灯泡和柔和冷紫色帘幕，避免杂乱。",
+      "dialogue": [],
+      "sfx": [],
+      "importance": 1,
+      "status": "draft",
+      "figures": [
+        {
+          "character_id": "hiyone",
+          "pose": "sit",
+          "position": "center",
+          "facing": "right",
+          "framing": "waist"
+        }
+      ],
+      "caption_auto_en": {
+        "format": "scene-v1",
+        "text": "Autograph cards are stacked neatly beside a pen and an open notebook on the table. She has just put down the pen and lifts her gaze with a relieved smile after finishing her work. Only softly blurred warm golden bulbs and muted violet curtains appear behind her, keeping the dressing room uncluttered.",
+        "source_hash": "3a8f4ea456d50c584dd8a48a3585aa2fedb932e304bbfc9bcf1bb8ef43c7059a",
+        "translated_at": "2026-10-22T15:56:39.172826+00:00"
+      }
+    },
+    {
+      "id": "p2",
+      "order": 2,
+      "shape": {
+        "type": "rect",
+        "x": 47.84,
+        "y": 50.400000000000006,
+        "w": 452.16,
+        "h": 298.56
+      },
+      "shot": "medium",
+      "angle": "eye",
+      "character_ids": [
+        "hiyone"
+      ],
+      "description": "她侧身推开椅子站起，双手在胸前轻轻交握，准备向上伸展。长发顺着肩背滑落，裙摆自然垂坠，转身的动作轻盈优雅。桌角和暖色灯光交代后台环境。",
+      "dialogue": [],
+      "sfx": [],
+      "importance": 1,
+      "status": "draft",
+      "figures": [
+        {
+          "character_id": "hiyone",
+          "pose": "stand",
+          "position": "center",
+          "facing": "left",
+          "framing": "waist"
+        }
+      ],
+      "caption_auto_en": {
+        "format": "scene-v1",
+        "text": "She pushes the chair aside and rises gracefully, lightly clasping her hands in front of her chest in preparation for a stretch. Her hair slides down her shoulders and back while the skirt hangs in soft natural folds. A table corner and warm light establish the backstage dressing room.",
+        "source_hash": "aa7b091a759a297b4a75bc5939641f61f493d73ed500fa89f963897af74ba759",
+        "translated_at": "2026-10-22T15:56:39.172826+00:00"
+      }
+    },
+    {
+      "id": "p3",
+      "order": 3,
+      "shape": {
+        "type": "rect",
+        "x": 406.24,
+        "y": 372.96,
+        "w": 569.92,
+        "h": 1112.6399999999999
+      },
+      "shot": "full",
+      "angle": "eye",
+      "character_ids": [
+        "hiyone"
+      ],
+      "description": "完整展现一个舒缓而优雅的伸展瞬间。身体微微转向前侧方，双臂合拢举过头顶，一只手轻轻搭住另一只手，手肘自然弯曲。肩部向画面左侧延伸，髋部自然向右偏，形成柔和S形身体线条；一条腿承重，另一条腿放松向外舒展。头轻微侧倾，明亮而慵懒的目光望向观众，嘴角是带一点俏皮的自信微笑。抬臂时躯干自然伸长，柔软衣料与垂坠裙摆顺着身形形成漂亮褶皱，长发如弧线从肩背流下。暖金边缘光描出头发、肩臂与腿部，背景是虚化的冷紫帘幕和几颗柔和灯光。人物头顶、指尖、裙摆与靴尖四周都有充足余量，整个人物轮廓清楚。",
+      "dialogue": [],
+      "sfx": [],
+      "importance": 3,
+      "status": "draft",
+      "figures": [
+        {
+          "character_id": "hiyone",
+          "pose": "arms_up",
+          "position": "center",
+          "facing": "front",
+          "framing": "full",
+          "editor": {
+            "version": 1,
+            "x": 284.96,
+            "y": 1030,
+            "size": 735,
+            "flip": false,
+            "view": "front",
+            "style": "rough",
+            "break_frame": false,
+            "joints": {
+              "head": [
+                -6,
+                -94
+              ],
+              "neck": [
+                -2,
+                -80
+              ],
+              "hip": [
+                8,
+                -51
+              ],
+              "lElbow": [
+                -18,
+                -103
+              ],
+              "lHand": [
+                -9,
+                -126
+              ],
+              "rElbow": [
+                4,
+                -103
+              ],
+              "rHand": [
+                -7,
+                -127
+              ],
+              "lKnee": [
+                2,
+                -27
+              ],
+              "lFoot": [
+                0,
+                0
+              ],
+              "rKnee": [
+                17,
+                -25
+              ],
+              "rFoot": [
+                20,
+                -1
+              ]
+            }
+          }
+        }
+      ],
+      "caption_auto_en": {
+        "format": "scene-v1",
+        "text": "A calm graceful stretching moment. Her torso turns slightly three-quarters toward the viewer, with one hand resting lightly over the other overhead and her elbows softly bent. Her shoulders reach gently toward the left side of the image while her hips shift naturally toward the right, creating a soft S-shaped silhouette. One leg supports her weight and the other extends outward in a relaxed pose. She tilts her head slightly and meets the viewer with bright languid eyes and a small playful confident smile. The stretch lengthens her torso; soft fabric folds and the draped skirt follow the figure gracefully while her hair falls in flowing arcs down her back. Warm golden rim light traces the hair, arms and legs against softly blurred violet curtains and a few gentle lights. Leave generous clear space around the top of the head, fingertips, skirt and boot tips so the entire silhouette remains visible.",
+        "source_hash": "7ad4e354a9c816a7543c0ab84b0951c80ab371ffbee94dcc91213c4f9ef317b9",
+        "translated_at": "2026-10-22T15:56:39.173326+00:00"
+      }
+    },
+    {
+      "id": "p4",
+      "order": 4,
+      "shape": {
+        "type": "rect",
+        "x": 47.84,
+        "y": 372.96,
+        "w": 334.4,
+        "h": 498.24
+      },
+      "shot": "close_up",
+      "angle": "eye",
+      "character_ids": [
+        "hiyone"
+      ],
+      "description": "她放下手臂，发丝轻轻拂过肩头。眼睛明亮，嘴角上扬，脸颊有很淡的红晕，轻轻呼气的表情自然放松。暖金光照亮面颊，眼睛和睫毛精细，背景柔和虚化。",
+      "dialogue": [],
+      "sfx": [],
+      "importance": 1,
+      "status": "draft",
+      "figures": [
+        {
+          "character_id": "hiyone",
+          "pose": "stand",
+          "position": "center",
+          "facing": "front",
+          "framing": "face"
+        }
+      ],
+      "caption_auto_en": {
+        "format": "scene-v1",
+        "text": "Her hair lightly brushes her shoulders. She exhales with bright eyes, a naturally relaxed smile and a very faint blush on her cheeks. Warm golden light illuminates her face, with delicate eye and eyelash detail against a softly blurred background.",
+        "source_hash": "007da7a3e28a76643cf843ccebd67d51784f08999fafcbd1b70db6023cd7fad1",
+        "translated_at": "2026-10-22T15:56:39.173326+00:00"
+      }
+    },
+    {
+      "id": "p5",
+      "order": 5,
+      "shape": {
+        "type": "rect",
+        "x": 47.84,
+        "y": 895.1999999999999,
+        "w": 334.4,
+        "h": 590.4000000000001
+      },
+      "shot": "medium",
+      "angle": "eye",
+      "character_ids": [
+        "hiyone"
+      ],
+      "description": "她发现门边的同伴，转头看向对方，露出亲近而俏皮的微笑，一只手轻轻扶住桌边。画面边缘只留同伴的局部肩膀轮廓，门口透来柔和冷蓝光，气氛温暖轻松。",
+      "dialogue": [],
+      "sfx": [],
+      "importance": 1,
+      "status": "draft",
+      "figures": [
+        {
+          "character_id": "hiyone",
+          "pose": "stand",
+          "position": "center",
+          "facing": "left",
+          "framing": "waist"
+        }
+      ],
+      "caption_auto_en": {
+        "format": "scene-v1",
+        "text": "Noticing her companion by the door, she turns her head toward them with a warm playful smile and lightly rests one hand on the table edge. Only a small shoulder silhouette of the companion is visible near the image edge. Soft cool blue doorway light contrasts with the warm relaxed atmosphere.",
+        "source_hash": "d638406132b6d36f169f7cb64c2933a33f892af91205ba8daa118e67a874e8a6",
+        "translated_at": "2026-10-22T15:56:39.173326+00:00"
+      }
+    }
+  ],
+  "texts": [
+    {
+      "position": null,
+      "id": "p1-dialogue-1",
+      "text": "终于弄完了……",
+      "kind": "dialogue",
+      "panel_id": "p1",
+      "speaker_id": "hiyone",
+      "direction": null,
+      "bubble": "speech",
+      "bbox": {
+        "type": "rect",
+        "x": 919.2176000000001,
+        "y": 62.34240000000001,
+        "w": 45,
+        "h": 275
+      },
+      "style_hint": null
+    },
+    {
+      "position": null,
+      "id": "p4-dialogue-1",
+      "text": "呼……",
+      "kind": "dialogue",
+      "panel_id": "p4",
+      "speaker_id": "hiyone",
+      "direction": null,
+      "bubble": "speech",
+      "bbox": {
+        "type": "rect",
+        "x": 315.24,
+        "y": 384.96,
+        "w": 55,
+        "h": 145
+      },
+      "style_hint": null
+    },
+    {
+      "position": null,
+      "id": "p5-dialogue-1",
+      "text": "走吧，陪我喝点东西。",
+      "kind": "dialogue",
+      "panel_id": "p5",
+      "speaker_id": "hiyone",
+      "direction": null,
+      "bubble": "speech",
+      "bbox": {
+        "type": "rect",
+        "x": 315.24,
+        "y": 907.1999999999999,
+        "w": 55,
+        "h": 483
+      },
+      "style_hint": null
+    }
+  ],
+  "tags": [
+    "adult anime woman",
+    "full color",
+    "backstage dressing room",
+    "stretching",
+    "wine-red evening dress",
+    "warm gold and violet lighting"
+  ]
+}

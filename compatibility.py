@@ -6,10 +6,10 @@ import importlib
 import logging
 from importlib import metadata
 
-MIN_CORE_VERSION = "0.4.0"
+MIN_CORE_VERSION = "0.4.1"
 CORE_WHEEL_URL = (
-    "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.0/"
-    "soda_storyboard-0.4.0-py3-none-any.whl"
+    "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.1/"
+    "soda_storyboard-0.4.1-py3-none-any.whl"
 )
 LOGGER = logging.getLogger(__name__)
 

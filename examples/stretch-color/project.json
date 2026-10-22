@@ -1,0 +1,38 @@
+{
+  "format": "soda-storyboard-project-v1",
+  "name": "起身舒展·彩色动漫示例",
+  "default_style_prefix": "",
+  "default_canvas_width": 1024,
+  "default_canvas_height": 1536,
+  "reading_direction": "rtl",
+  "default_dialogue_mode": "lettering",
+  "text_direction": "vertical",
+  "color_mode": "color",
+  "style_prompt": "Fully colored polished 2D Japanese anime illustration comic, contemporary anime game key visual quality, exceptionally appealing refined anime faces, expressive jewel-like eyes, tiny delicate noses and soft lips, graceful adult anime proportions, clean elegant fine linework, sophisticated soft cel shading with smooth painterly gradients, luminous warm skin tones, rich wine-red silk and glossy black hair, warm golden vanity lights balanced with muted violet and cool blue background light, restrained sparkling jewelry highlights, cinematic depth and soft bokeh, coherent character design throughout the page, clear uncluttered panel compositions and clean pale gutters.",
+  "tags": [
+    "adult anime woman",
+    "full color",
+    "backstage dressing room",
+    "stretching",
+    "wine-red evening dress",
+    "warm gold and violet lighting"
+  ],
+  "caption_language": "en",
+  "glossary": {},
+  "lora_policy": "none",
+  "comfy": {
+    "url": "http://127.0.0.1:8188",
+    "model": "sft",
+    "preset": "final",
+    "backend": "minimal",
+    "sft": "moss_image_sft_int8_convrot.safetensors",
+    "base": "moss_image_base_int8_convrot.safetensors",
+    "clip": "qwen3.5_9b_w4a8_gptq.safetensors",
+    "vae": "flux2-vae.safetensors",
+    "timeout": 600,
+    "poll_interval": 1,
+    "workflow": null,
+    "cut_inset": 12,
+    "border_width": 3
+  }
+}

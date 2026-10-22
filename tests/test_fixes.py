@@ -127,7 +127,7 @@ def test_mask_scope_default(plugin: ModuleType) -> None:
         ("0.3.0", True),
         ("0.3.1", True),
         ("0.4.0rc1", True),
-        ("0.4.0", False),
+        ("0.4.0", True),
         ("0.4.1", False),
         ("0.10.0", False),
     ],
@@ -148,7 +148,7 @@ def test_core_version_warning(
     assert bool(messages) is warn
     if warn:
         assert len(messages) == 1
-        assert "0.4.0" in messages[0]
+        assert "0.4.1" in messages[0]
         assert r".\python_embeded\python.exe" in messages[0]
         assert compatibility.CORE_WHEEL_URL in messages[0]
         assert "pip install" in messages[0]
@@ -172,7 +172,7 @@ def test_wheel_dependency_matches_metadata() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8").strip()
     assert requirements in metadata["project"]["dependencies"]
-    assert requirements.endswith("/v0.4.0/soda_storyboard-0.4.0-py3-none-any.whl")
+    assert requirements.endswith("/v0.4.1/soda_storyboard-0.4.1-py3-none-any.whl")
     assert "git+" not in requirements
 
 

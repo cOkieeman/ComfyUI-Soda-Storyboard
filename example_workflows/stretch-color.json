@@ -1,0 +1,760 @@
+{
+  "last_node_id": 15,
+  "last_link_id": 21,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "SodaLoadStoryboard",
+      "title": "彩色动漫：绯音·舒展",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        500,
+        820
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "moss_json",
+          "type": "STRING",
+          "slot_index": 0,
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "slot_index": 1,
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "slot_index": 2,
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "resolution_json",
+          "type": "STRING",
+          "slot_index": 3,
+          "links": []
+        },
+        {
+          "name": "lora_name",
+          "type": "STRING",
+          "slot_index": 4,
+          "links": []
+        },
+        {
+          "name": "lora_strength",
+          "type": "FLOAT",
+          "slot_index": 5,
+          "links": []
+        },
+        {
+          "name": "negative",
+          "type": "STRING",
+          "slot_index": 6,
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "page_info",
+          "type": "STRING",
+          "slot_index": 7,
+          "links": [
+            19
+          ]
+        },
+        {
+          "name": "draft",
+          "type": "IMAGE",
+          "slot_index": 8,
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SodaLoadStoryboard"
+      },
+      "widgets_values": [
+        "",
+        "跟随页面",
+        "cut",
+        true,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "type": "UNETLoader",
+      "title": "选择本机 MOSS 主模型",
+      "pos": [
+        570,
+        0
+      ],
+      "size": [
+        320,
+        150
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "moss_image_sft_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "ModelSamplingAuraFlow",
+      "title": "MOSS shift 5",
+      "pos": [
+        570,
+        220
+      ],
+      "size": [
+        320,
+        125
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ModelSamplingAuraFlow"
+      },
+      "widgets_values": [
+        5
+      ]
+    },
+    {
+      "id": 5,
+      "type": "CLIPLoader",
+      "title": "选择 MOSS 文本编码器",
+      "pos": [
+        570,
+        650
+      ],
+      "size": [
+        320,
+        175
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "slot_index": 0,
+          "links": [
+            6,
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen3.5_9b_w4a8_gptq.safetensors",
+        "moss_image",
+        "default"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "VAELoader",
+      "title": "选择 Flux2 VAE",
+      "pos": [
+        570,
+        880
+      ],
+      "size": [
+        320,
+        125
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "flux2-vae.safetensors"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "EmptyFlux2LatentImage",
+      "title": "尺寸接分镜页输出",
+      "pos": [
+        940,
+        490
+      ],
+      "size": [
+        320,
+        175
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "link": 4,
+          "widget": {
+            "name": "width"
+          }
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "link": 5,
+          "widget": {
+            "name": "height"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyFlux2LatentImage"
+      },
+      "widgets_values": [
+        1024,
+        1536,
+        1
+      ]
+    },
+    {
+      "id": 8,
+      "type": "CLIPTextEncode",
+      "title": "MOSS 布局 JSON",
+      "pos": [
+        940,
+        0
+      ],
+      "size": [
+        320,
+        125
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 6
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 7,
+          "widget": {
+            "name": "text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ]
+    },
+    {
+      "id": 9,
+      "type": "CLIPTextEncode",
+      "title": "通用负面提示词",
+      "pos": [
+        940,
+        230
+      ],
+      "size": [
+        320,
+        125
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 8
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 9,
+          "widget": {
+            "name": "text"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        ""
+      ]
+    },
+    {
+      "id": 10,
+      "type": "KSampler",
+      "title": "MOSS 质量档 · 50 步",
+      "pos": [
+        1320,
+        0
+      ],
+      "size": [
+        320,
+        275
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 10
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 11
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        20261022,
+        "fixed",
+        50,
+        3,
+        "euler",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 11,
+      "type": "VAEDecode",
+      "title": "解码",
+      "pos": [
+        1320,
+        420
+      ],
+      "size": [
+        320,
+        110
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 14
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "SodaLetterPage",
+      "title": "程序排字（自动寻找中文字体）",
+      "pos": [
+        1680,
+        0
+      ],
+      "size": [
+        320,
+        150
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 18
+        },
+        {
+          "name": "page_info",
+          "type": "STRING",
+          "link": 19,
+          "widget": {
+            "name": "page_info"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SodaLetterPage"
+      },
+      "widgets_values": [
+        "",
+        ""
+      ]
+    },
+    {
+      "id": 14,
+      "type": "SaveImage",
+      "title": "保存结果",
+      "pos": [
+        1680,
+        290
+      ],
+      "size": [
+        320,
+        125
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 20
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "SodaStoryboard/stretch-color"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "SkipLayerGuidanceDiTSimple",
+      "title": "质量档 · SLG 22",
+      "pos": [
+        570,
+        400
+      ],
+      "size": [
+        320,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 21
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SkipLayerGuidanceDiTSimple"
+      },
+      "widgets_values": [
+        "",
+        "22",
+        0,
+        1
+      ]
+    }
+  ],
+  "links": [
+    [
+      3,
+      2,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      4,
+      1,
+      1,
+      7,
+      0,
+      "INT"
+    ],
+    [
+      5,
+      1,
+      2,
+      7,
+      1,
+      "INT"
+    ],
+    [
+      6,
+      5,
+      0,
+      8,
+      0,
+      "CLIP"
+    ],
+    [
+      7,
+      1,
+      0,
+      8,
+      1,
+      "STRING"
+    ],
+    [
+      8,
+      5,
+      0,
+      9,
+      0,
+      "CLIP"
+    ],
+    [
+      9,
+      1,
+      6,
+      9,
+      1,
+      "STRING"
+    ],
+    [
+      10,
+      15,
+      0,
+      10,
+      0,
+      "MODEL"
+    ],
+    [
+      11,
+      8,
+      0,
+      10,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      12,
+      9,
+      0,
+      10,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      7,
+      0,
+      10,
+      3,
+      "LATENT"
+    ],
+    [
+      14,
+      10,
+      0,
+      11,
+      0,
+      "LATENT"
+    ],
+    [
+      15,
+      6,
+      0,
+      11,
+      1,
+      "VAE"
+    ],
+    [
+      18,
+      11,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      1,
+      7,
+      13,
+      1,
+      "STRING"
+    ],
+    [
+      20,
+      13,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      4,
+      0,
+      15,
+      0,
+      "MODEL"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        40,
+        40
+      ]
+    }
+  },
+  "version": 0.4
+}

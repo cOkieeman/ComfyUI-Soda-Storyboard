@@ -1,0 +1,380 @@
+{
+  "format": "soda-storyboard-bundle-v1",
+  "exported_at": "2026-10-22T16:13:27.839326+00:00",
+  "generator": "soda-storyboard 0.4.1",
+  "project": {
+    "format": "soda-storyboard-project-v1",
+    "name": "起身舒展·彩色动漫示例",
+    "default_style_prefix": "",
+    "default_canvas_width": 1024,
+    "default_canvas_height": 1536,
+    "reading_direction": "rtl",
+    "default_dialogue_mode": "lettering",
+    "text_direction": "vertical",
+    "color_mode": "color",
+    "style_prompt": "Fully colored polished 2D Japanese anime illustration comic, contemporary anime game key visual quality, exceptionally appealing refined anime faces, expressive jewel-like eyes, tiny delicate noses and soft lips, graceful adult anime proportions, clean elegant fine linework, sophisticated soft cel shading with smooth painterly gradients, luminous warm skin tones, rich wine-red silk and glossy black hair, warm golden vanity lights balanced with muted violet and cool blue background light, restrained sparkling jewelry highlights, cinematic depth and soft bokeh, coherent character design throughout the page, clear uncluttered panel compositions and clean pale gutters.",
+    "tags": [
+      "adult anime woman",
+      "full color",
+      "backstage dressing room",
+      "stretching",
+      "wine-red evening dress",
+      "warm gold and violet lighting"
+    ],
+    "caption_language": "en",
+    "glossary": {},
+    "lora_policy": "none",
+    "comfy": {
+      "url": "",
+      "model": "sft",
+      "preset": "final",
+      "backend": "minimal",
+      "sft": "moss_image_sft_int8_convrot.safetensors",
+      "base": "moss_image_base_int8_convrot.safetensors",
+      "clip": "qwen3.5_9b_w4a8_gptq.safetensors",
+      "vae": "flux2-vae.safetensors",
+      "timeout": 600,
+      "poll_interval": 1,
+      "workflow": null,
+      "cut_inset": 12,
+      "border_width": 3
+    }
+  },
+  "page": {
+    "format": "soda-storyboard-page-v1",
+    "id": "stretch-color",
+    "canvas_width": 1024,
+    "canvas_height": 1536,
+    "reading_direction": "rtl",
+    "panel_gap": 24,
+    "description": "演出后台，成年女主绯音在签完最后一张卡片后起身舒展，长发和礼服随动作舒展开来；她放松地笑着邀请门边的同伴喝点东西。",
+    "dialogue_mode": "lettering",
+    "color_mode": "color",
+    "text_direction": "vertical",
+    "style_prompt": "Fully colored polished 2D Japanese anime illustration comic, contemporary anime game key visual quality, exceptionally appealing refined anime faces, expressive jewel-like eyes, tiny delicate noses and soft lips, graceful adult anime proportions, clean elegant fine linework, sophisticated soft cel shading with smooth painterly gradients, luminous warm skin tones, rich wine-red silk and glossy black hair, warm golden vanity lights balanced with muted violet and cool blue background light, restrained sparkling jewelry highlights, cinematic depth and soft bokeh, coherent character design throughout the page, clear uncluttered panel compositions and clean pale gutters.",
+    "lora_character": "none",
+    "panels": [
+      {
+        "id": "p1",
+        "order": 1,
+        "shape": {
+          "type": "rect",
+          "x": 524.0,
+          "y": 50.400000000000006,
+          "w": 452.16,
+          "h": 298.56
+        },
+        "shot": "medium",
+        "angle": "eye",
+        "character_ids": [
+          "hiyone"
+        ],
+        "description": "签名卡片整齐叠在桌边，桌上有一支笔和打开的记事本。她坐在桌前，刚刚放下笔，抬起视线，露出结束工作后的轻松微笑。背景只有虚化的暖金灯泡和柔和冷紫色帘幕，避免杂乱。",
+        "dialogue": [],
+        "sfx": [],
+        "importance": 1,
+        "status": "draft",
+        "figures": [
+          {
+            "character_id": "hiyone",
+            "pose": "sit",
+            "position": "center",
+            "facing": "right",
+            "framing": "waist"
+          }
+        ],
+        "caption_auto_en": {
+          "format": "scene-v1",
+          "text": "Autograph cards are stacked neatly beside a pen and an open notebook on the table. She has just put down the pen and lifts her gaze with a relieved smile after finishing her work. Only softly blurred warm golden bulbs and muted violet curtains appear behind her, keeping the dressing room uncluttered.",
+          "source_hash": "3a8f4ea456d50c584dd8a48a3585aa2fedb932e304bbfc9bcf1bb8ef43c7059a",
+          "translated_at": "2026-10-22T15:56:39.172826+00:00"
+        }
+      },
+      {
+        "id": "p2",
+        "order": 2,
+        "shape": {
+          "type": "rect",
+          "x": 47.84,
+          "y": 50.400000000000006,
+          "w": 452.16,
+          "h": 298.56
+        },
+        "shot": "medium",
+        "angle": "eye",
+        "character_ids": [
+          "hiyone"
+        ],
+        "description": "她侧身推开椅子站起，双手在胸前轻轻交握，准备向上伸展。长发顺着肩背滑落，裙摆自然垂坠，转身的动作轻盈优雅。桌角和暖色灯光交代后台环境。",
+        "dialogue": [],
+        "sfx": [],
+        "importance": 1,
+        "status": "draft",
+        "figures": [
+          {
+            "character_id": "hiyone",
+            "pose": "stand",
+            "position": "center",
+            "facing": "left",
+            "framing": "waist"
+          }
+        ],
+        "caption_auto_en": {
+          "format": "scene-v1",
+          "text": "She pushes the chair aside and rises gracefully, lightly clasping her hands in front of her chest in preparation for a stretch. Her hair slides down her shoulders and back while the skirt hangs in soft natural folds. A table corner and warm light establish the backstage dressing room.",
+          "source_hash": "aa7b091a759a297b4a75bc5939641f61f493d73ed500fa89f963897af74ba759",
+          "translated_at": "2026-10-22T15:56:39.172826+00:00"
+        }
+      },
+      {
+        "id": "p3",
+        "order": 3,
+        "shape": {
+          "type": "rect",
+          "x": 406.24,
+          "y": 372.96,
+          "w": 569.92,
+          "h": 1112.6399999999999
+        },
+        "shot": "full",
+        "angle": "eye",
+        "character_ids": [
+          "hiyone"
+        ],
+        "description": "完整展现一个舒缓而优雅的伸展瞬间。身体微微转向前侧方，双臂合拢举过头顶，一只手轻轻搭住另一只手，手肘自然弯曲。肩部向画面左侧延伸，髋部自然向右偏，形成柔和S形身体线条；一条腿承重，另一条腿放松向外舒展。头轻微侧倾，明亮而慵懒的目光望向观众，嘴角是带一点俏皮的自信微笑。抬臂时躯干自然伸长，柔软衣料与垂坠裙摆顺着身形形成漂亮褶皱，长发如弧线从肩背流下。暖金边缘光描出头发、肩臂与腿部，背景是虚化的冷紫帘幕和几颗柔和灯光。人物头顶、指尖、裙摆与靴尖四周都有充足余量，整个人物轮廓清楚。",
+        "dialogue": [],
+        "sfx": [],
+        "importance": 3,
+        "status": "draft",
+        "figures": [
+          {
+            "character_id": "hiyone",
+            "pose": "arms_up",
+            "position": "center",
+            "facing": "front",
+            "framing": "full",
+            "editor": {
+              "version": 1,
+              "x": 284.96,
+              "y": 1030,
+              "size": 735,
+              "flip": false,
+              "view": "front",
+              "style": "rough",
+              "break_frame": false,
+              "joints": {
+                "head": [
+                  -6,
+                  -94
+                ],
+                "neck": [
+                  -2,
+                  -80
+                ],
+                "hip": [
+                  8,
+                  -51
+                ],
+                "lElbow": [
+                  -18,
+                  -103
+                ],
+                "lHand": [
+                  -9,
+                  -126
+                ],
+                "rElbow": [
+                  4,
+                  -103
+                ],
+                "rHand": [
+                  -7,
+                  -127
+                ],
+                "lKnee": [
+                  2,
+                  -27
+                ],
+                "lFoot": [
+                  0,
+                  0
+                ],
+                "rKnee": [
+                  17,
+                  -25
+                ],
+                "rFoot": [
+                  20,
+                  -1
+                ]
+              }
+            }
+          }
+        ],
+        "caption_auto_en": {
+          "format": "scene-v1",
+          "text": "A calm graceful stretching moment. Her torso turns slightly three-quarters toward the viewer, with one hand resting lightly over the other overhead and her elbows softly bent. Her shoulders reach gently toward the left side of the image while her hips shift naturally toward the right, creating a soft S-shaped silhouette. One leg supports her weight and the other extends outward in a relaxed pose. She tilts her head slightly and meets the viewer with bright languid eyes and a small playful confident smile. The stretch lengthens her torso; soft fabric folds and the draped skirt follow the figure gracefully while her hair falls in flowing arcs down her back. Warm golden rim light traces the hair, arms and legs against softly blurred violet curtains and a few gentle lights. Leave generous clear space around the top of the head, fingertips, skirt and boot tips so the entire silhouette remains visible.",
+          "source_hash": "7ad4e354a9c816a7543c0ab84b0951c80ab371ffbee94dcc91213c4f9ef317b9",
+          "translated_at": "2026-10-22T15:56:39.173326+00:00"
+        }
+      },
+      {
+        "id": "p4",
+        "order": 4,
+        "shape": {
+          "type": "rect",
+          "x": 47.84,
+          "y": 372.96,
+          "w": 334.4,
+          "h": 498.24
+        },
+        "shot": "close_up",
+        "angle": "eye",
+        "character_ids": [
+          "hiyone"
+        ],
+        "description": "她放下手臂，发丝轻轻拂过肩头。眼睛明亮，嘴角上扬，脸颊有很淡的红晕，轻轻呼气的表情自然放松。暖金光照亮面颊，眼睛和睫毛精细，背景柔和虚化。",
+        "dialogue": [],
+        "sfx": [],
+        "importance": 1,
+        "status": "draft",
+        "figures": [
+          {
+            "character_id": "hiyone",
+            "pose": "stand",
+            "position": "center",
+            "facing": "front",
+            "framing": "face"
+          }
+        ],
+        "caption_auto_en": {
+          "format": "scene-v1",
+          "text": "Her hair lightly brushes her shoulders. She exhales with bright eyes, a naturally relaxed smile and a very faint blush on her cheeks. Warm golden light illuminates her face, with delicate eye and eyelash detail against a softly blurred background.",
+          "source_hash": "007da7a3e28a76643cf843ccebd67d51784f08999fafcbd1b70db6023cd7fad1",
+          "translated_at": "2026-10-22T15:56:39.173326+00:00"
+        }
+      },
+      {
+        "id": "p5",
+        "order": 5,
+        "shape": {
+          "type": "rect",
+          "x": 47.84,
+          "y": 895.1999999999999,
+          "w": 334.4,
+          "h": 590.4000000000001
+        },
+        "shot": "medium",
+        "angle": "eye",
+        "character_ids": [
+          "hiyone"
+        ],
+        "description": "她发现门边的同伴，转头看向对方，露出亲近而俏皮的微笑，一只手轻轻扶住桌边。画面边缘只留同伴的局部肩膀轮廓，门口透来柔和冷蓝光，气氛温暖轻松。",
+        "dialogue": [],
+        "sfx": [],
+        "importance": 1,
+        "status": "draft",
+        "figures": [
+          {
+            "character_id": "hiyone",
+            "pose": "stand",
+            "position": "center",
+            "facing": "left",
+            "framing": "waist"
+          }
+        ],
+        "caption_auto_en": {
+          "format": "scene-v1",
+          "text": "Noticing her companion by the door, she turns her head toward them with a warm playful smile and lightly rests one hand on the table edge. Only a small shoulder silhouette of the companion is visible near the image edge. Soft cool blue doorway light contrasts with the warm relaxed atmosphere.",
+          "source_hash": "d638406132b6d36f169f7cb64c2933a33f892af91205ba8daa118e67a874e8a6",
+          "translated_at": "2026-10-22T15:56:39.173326+00:00"
+        }
+      }
+    ],
+    "texts": [
+      {
+        "position": null,
+        "id": "p1-dialogue-1",
+        "text": "终于弄完了……",
+        "kind": "dialogue",
+        "panel_id": "p1",
+        "speaker_id": "hiyone",
+        "direction": null,
+        "bubble": "speech",
+        "bbox": {
+          "type": "rect",
+          "x": 919.2176000000001,
+          "y": 62.34240000000001,
+          "w": 45,
+          "h": 275
+        },
+        "style_hint": null
+      },
+      {
+        "position": null,
+        "id": "p4-dialogue-1",
+        "text": "呼……",
+        "kind": "dialogue",
+        "panel_id": "p4",
+        "speaker_id": "hiyone",
+        "direction": null,
+        "bubble": "speech",
+        "bbox": {
+          "type": "rect",
+          "x": 315.24,
+          "y": 384.96,
+          "w": 55,
+          "h": 145
+        },
+        "style_hint": null
+      },
+      {
+        "position": null,
+        "id": "p5-dialogue-1",
+        "text": "走吧，陪我喝点东西。",
+        "kind": "dialogue",
+        "panel_id": "p5",
+        "speaker_id": "hiyone",
+        "direction": null,
+        "bubble": "speech",
+        "bbox": {
+          "type": "rect",
+          "x": 315.24,
+          "y": 907.1999999999999,
+          "w": 55,
+          "h": 483
+        },
+        "style_hint": null
+      }
+    ],
+    "tags": [
+      "adult anime woman",
+      "full color",
+      "backstage dressing room",
+      "stretching",
+      "wine-red evening dress",
+      "warm gold and violet lighting"
+    ]
+  },
+  "characters": {
+    "hiyone": {
+      "format": "soda-storyboard-character-v1",
+      "id": "hiyone",
+      "display_name": "绯音",
+      "age": "25-year-old",
+      "trigger_words": [],
+      "clothing": [
+        "fitted opaque wine-red halter evening dress with off-shoulder bow straps and a draped side-slit skirt",
+        "wine-red lace gloves",
+        "black over-the-knee boots"
+      ],
+      "reference_images": [],
+      "approved_images": [],
+      "appearance": {
+        "zh": "25岁成年动漫女性，柔美精致的小脸，黑色及腰长发、整齐齐刘海和两侧姬式发束，明亮红紫色大眼睛、细致睫毛和酒红色眼影，小巧鼻子、柔软微启的嘴唇，丰满而协调的身形、收束的腰线与修长双腿。酒红色露肩挂脖礼服，肩侧蝴蝶结与垂坠开衩裙摆，酒红色蕾丝手套、黑色过膝长靴、银色四芒星耳坠与几何吊坠项链。",
+        "en": "a beautiful 25-year-old adult anime woman, a delicate softly tapered face and small refined chin, large luminous crimson-purple eyes with finely drawn upper lashes and subtle burgundy eyeshadow, a tiny softly indicated nose and soft slightly parted lips, long flowing silky jet-black hair reaching her waist with neat straight blunt bangs and short hime-cut side locks framing the cheeks, a voluptuous yet harmonious hourglass silhouette with a full bust, defined slender waist and long graceful legs, wearing a fitted opaque wine-red halter evening dress with off-shoulder bow straps and a draped side-slit skirt, wine-red lace gloves, black over-the-knee boots, silver four-point star earrings and a silver geometric pendant necklace"
+      }
+    }
+  },
+  "sketch_png_base64": "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"
+}

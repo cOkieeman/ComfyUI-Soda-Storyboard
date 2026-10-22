@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from soda_storyboard.bundle import compile_bundle, export_bundle, load_bundle
-from soda_storyboard.captions import source_hash
+from soda_storyboard.captions import SCENE_TRANSLATION_FORMAT, source_hash
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -64,6 +64,7 @@ def test_translation_status_comes_from_compile_warnings(
         if state != "missing":
             raw["caption_auto_en"] = {
                 "text": "A young traveler beside a river",
+                "format": SCENE_TRANSLATION_FORMAT,
                 "source_hash": source_hash(panel, page, cards) if state == "fresh" else "old",
             }
     expected = compile_bundle(value)
@@ -80,7 +81,11 @@ def test_translation_status_comes_from_compile_warnings(
 
 def test_mixed_translation_warnings_keep_both_statuses(plugin: ModuleType, project: Path) -> None:
     value = legacy_bundle(project)
-    value["page"]["panels"][0]["caption_auto_en"] = {"text": "Old text", "source_hash": "old"}
+    value["page"]["panels"][0]["caption_auto_en"] = {
+        "text": "Old text",
+        "format": SCENE_TRANSLATION_FORMAT,
+        "source_hash": "old",
+    }
     importing = importlib.import_module(f"{plugin.__name__}.nodes.importing")
     metadata = importing.inspect_payload(json.dumps(value).encode())
     assert metadata["translation_status"] == {"state": "stale", "panels": {"2": "stale", "1": "missing"}}
