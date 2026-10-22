@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib
 import json
+import os
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -157,4 +158,4 @@ def relative_lora(path: str) -> str:
     if normalized.startswith("/") or PureWindowsPath(path).drive or ".." in normalized.split("/"):
         msg = "角色卡 LoRA 路径必须相对于 ComfyUI models/loras，不能使用绝对路径或 .."
         raise ValueError(msg)
-    return normalized
+    return normalized.replace("/", os.sep)

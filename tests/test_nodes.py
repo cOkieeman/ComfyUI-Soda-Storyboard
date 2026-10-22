@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -12,7 +13,6 @@ from soda_storyboard.io import load_characters, load_page, write_json
 from soda_storyboard.models import Page
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from types import ModuleType
 
 
@@ -42,7 +42,7 @@ def test_compile_contract(plugin: ModuleType, project: Path, slant: str) -> None
     assert "person_a" in actual["items"][0]["caption"]
     assert result[1:3] == (320, 240)
     assert json.loads(result[3]) == {"version": 1, "width": 320, "height": 240}
-    assert result[4:6] == ("characters/a.safetensors", 0.8)
+    assert result[4:6] == (str(Path("characters") / "a.safetensors"), 0.8)
     assert all(isinstance(result[i], str) for i in (0, 3, 4, 6, 7))
 
 
@@ -223,6 +223,13 @@ def test_unsafe_paths_rejected(plugin: ModuleType, project: Path) -> None:
     for path in ("/models/a", "C:\\models\\a", "../a.safetensors"):
         with pytest.raises(ValueError, match="LoRA 路径"):
             adapter.relative_lora(path)
+
+
+@pytest.mark.parametrize("name", ["characters/actor.safetensors", "characters\\actor.safetensors"])
+def test_lora_path_uses_native_separator(plugin: ModuleType, name: str) -> None:
+    adapter = importlib.import_module(f"{plugin.__name__}.nodes.core")
+    assert adapter.relative_lora(name) == str(Path("characters") / "actor.safetensors")
+    assert adapter.relative_lora("") == ""
 
 
 def test_tensor_batches(plugin: ModuleType, page_info: str) -> None:

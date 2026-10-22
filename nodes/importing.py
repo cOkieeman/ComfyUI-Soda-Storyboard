@@ -13,7 +13,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .bundles import compile_result, decode_json, describe, parse_bundle, validate_moss
+from .bundles import BUNDLE_FORMAT, compile_result, decode_json, describe, parse_bundle, validate_moss
 from .core import NEGATIVE, core, dumps, info, resolution
 
 MAX_CANVAS = 16384
@@ -164,7 +164,13 @@ def moss_preview(value: dict, width: int, height: int) -> Image.Image:
 
 
 def inspect_page(
-    page: Any, cards: dict, warnings: list[str], *, slant_mode: str = "cut", include_triggers: bool = True
+    page: Any,
+    cards: dict,
+    warnings: list[str],
+    *,
+    slant_mode: str = "cut",
+    include_triggers: bool = True,
+    draft: Image.Image | None = None,
 ) -> dict:
     result = compile_result(page, cards, slant_mode, include_triggers=include_triggers)
     metadata = describe(page, cards, warnings)
@@ -174,7 +180,8 @@ def inspect_page(
         height=result[2],
         page_info=result[7],
         kind="page",
-        draft_png_base64=png_base64(draft_image(page, cards)),
+        source_kind="page",
+        draft_png_base64=png_base64(draft if draft is not None else draft_image(page, cards)),
         result=result,
     )
     return metadata
@@ -199,6 +206,13 @@ def inspect_payload(
         metadata = describe(page, {}, [])
         metadata.update(
             kind="moss",
+            source_kind="moss",
+            title="",
+            page_id="",
+            panels=[],
+            panel_count=0,
+            items=value["items"],
+            summary=f"{width}×{height} · {len(value['items'])} 个条目",
             moss_json=result[0],
             width=width,
             height=height,
@@ -211,6 +225,7 @@ def inspect_payload(
         metadata = inspect_page(
             page, cards, warnings, slant_mode=slant_mode, include_triggers=include_triggers
         )
+        metadata["source_kind"] = "bundle" if value.get("format") == BUNDLE_FORMAT else "page"
     metadata["revision"] = hashlib.sha256(
         payload + dumps([width, height, dialogue_mode, slant_mode, include_triggers]).encode()
     ).hexdigest()

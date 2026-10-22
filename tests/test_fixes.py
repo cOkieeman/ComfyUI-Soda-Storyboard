@@ -42,7 +42,9 @@ def test_lora_loads_string_name(plugin: ModuleType, lora_runtime: SimpleNamespac
     assert result == (lora_runtime.patched,)
     assert node.RETURN_TYPES == ("MODEL",)
     assert node.INPUT_TYPES()["required"]["lora_name"][0] == "STRING"
-    lora_runtime.folders.get_full_path.assert_called_once_with("loras", "characters/actor.safetensors")
+    lora_runtime.folders.get_full_path.assert_called_once_with(
+        "loras", str(Path("characters") / "actor.safetensors")
+    )
     lora_runtime.utils.load_torch_file.assert_called_once_with(str(lora_runtime.path), safe_load=True)
     lora_runtime.sd.load_lora_for_models.assert_called_once_with(
         lora_runtime.model, None, lora_runtime.weights, 0.7, 0.0

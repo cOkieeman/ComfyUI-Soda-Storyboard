@@ -9,7 +9,7 @@ import threading
 from typing import Any
 from urllib.parse import quote, urlsplit
 
-from .nodes.bundles import MAX_FILE_BYTES, file_path, list_files, store_upload
+from .nodes.bundles import MAX_FILE_BYTES, file_path, list_files, original_filename, store_upload
 from .nodes.core import core, inside, page_path, project_root
 from .nodes.workspaces import export_copy, inspect_import, inspect_link, materialize
 
@@ -125,7 +125,12 @@ async def upload_request(request: Any) -> dict:
     name = await asyncio.to_thread(
         store_upload, field.filename, bytes(payload), request.query.get("kind", "storyboard")
     )
-    return {"name": name, "subfolder": "soda-storyboard", "type": "input"}
+    return {
+        "name": name,
+        "original_filename": await asyncio.to_thread(original_filename, name),
+        "subfolder": "soda-storyboard",
+        "type": "input",
+    }
 
 
 async def mutation_request(request: Any, action: str) -> dict:
@@ -173,7 +178,9 @@ async def dispatch(request: Any, action: str) -> Any:
         if action == "pages":
             result = {"pages": await asyncio.to_thread(list_pages, request.query.get("project_dir", ""))}
         elif action == "files":
-            result = {"files": await asyncio.to_thread(list_files, request.query.get("kind", "storyboard"))}
+            files = await asyncio.to_thread(list_files, request.query.get("kind", "storyboard"))
+            labels = await asyncio.to_thread(lambda: {name: original_filename(name) for name in files})
+            result = {"files": files, "file_labels": labels}
         elif action in {"inspect", "link"}:
             result = await inspect_request(request, action)
         elif action == "upload":

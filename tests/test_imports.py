@@ -66,6 +66,8 @@ def test_three_formats_have_visible_draft_and_exact_prompt(imports: SimpleNamesp
     value = getattr(imports, kind)
     name = imports.bundles.store_upload("test.json", json.dumps(value).encode(), "storyboard")
     result = imports.workspaces.inspect_import(name)
+    assert result["source_kind"] == kind
+    assert result["original_filename"] == "test.json"
     assert result["width"] == 320
     assert result["height"] == 240
     assert json.loads(result["moss_json"]) == json.loads(result["result"][0])
@@ -81,13 +83,73 @@ def test_three_formats_have_visible_draft_and_exact_prompt(imports: SimpleNamesp
     if kind == "moss":
         assert json.loads(result["moss_json"]) == value
         assert result["kind"] == "moss"
+        assert result["panels"] == []
+        assert result["panel_count"] == 0
+        assert result["items"] == value["items"]
+        assert result["summary"] == "320×240 · 4 个条目"
     elif kind == "page":
         assert imports.bundles.MISSING_CHARACTERS in result["warnings"]
         assert result["result"][4:6] == ("", 0.0)
+        assert "LoRA" not in result["summary"]
     else:
         assert "Watercolor art" in result["moss_json"]
         assert "建议：" in result["summary"]
         assert "建议一次只加载一个角色 LoRA" in result["warnings"]
+        assert result["lora"]["path"] == str(Path("characters") / "a.safetensors")
+        assert "safetensors" not in result["summary"]
+
+
+def test_panel_metadata_contains_reading_order_shapes_characters_and_text(imports: SimpleNamespace) -> None:
+    imports.bundle["page"]["title"] = "河边相遇"
+    imports.bundle["characters"]["a"]["display_name"] = "Sylvia"
+    imports.bundle["page"]["panels"][1].update(
+        shot="close_up", description="树下的旅人", dialogue=[{"speaker_id": "a", "text": "你好"}]
+    )
+    imports.bundle["page"]["texts"] = [
+        {"id": "narrator", "text": "黄昏时分", "kind": "narration", "panel_id": "left"}
+    ]
+    metadata = imports.importing.inspect_payload(json.dumps(imports.bundle).encode())
+    assert metadata["title"] == "河边相遇"
+    assert metadata["page_id"] == "p1"
+    assert metadata["reading_direction"] == "rtl"
+    assert metadata["character_names"] == {"a": "Sylvia", "b": "b"}
+    right, left = metadata["panels"]
+    assert (right["id"], left["id"]) == ("right", "left")
+    assert right["shot"] == "close_up"
+    assert right["description"] == "树下的旅人"
+    assert right["shape"] == {"type": "rect", "x": 176, "y": 16, "w": 128, "h": 208}
+    assert left["shape"]["type"] == "quad"
+    assert right["character_ids"] == ["a"]
+    assert right["texts"][0]["text"] == "你好"
+    assert right["texts"][0]["speaker_id"] == "a"
+    assert left["texts"][0]["kind"] == "narration"
+    assert len(metadata["texts"]) == 2
+    assert metadata["lora"]["display_name"] == "Sylvia"
+    assert metadata["lora"]["name"] == "a"
+    assert metadata["lora"]["filename"] == "a.safetensors"
+
+
+@pytest.mark.parametrize(
+    "original", ["page-abcd1234abcd1234.storyboard.json", "长" * 90 + ".storyboard.json"]
+)
+def test_original_upload_filename_is_retained(imports: SimpleNamespace, original: str) -> None:
+    name = imports.bundles.store_upload(original, json.dumps(imports.bundle).encode(), "storyboard")
+    metadata = imports.workspaces.inspect_import(name)
+    assert metadata["original_filename"] == original
+    assert imports.bundles.list_files("storyboard") == [name]
+    imports.workspaces.materialize(name)
+    assert imports.workspaces.inspect_import(name)["original_filename"] == original
+    assert imports.workspaces.inspect_import(name)["source_kind"] == "bundle"
+
+
+def test_legacy_upload_hash_is_removed_only_when_it_matches_content(imports: SimpleNamespace) -> None:
+    bundles = imports.bundles
+    name = bundles.store_upload("scene.storyboard.json", json.dumps(imports.bundle).encode(), "storyboard")
+    bundles.upload_metadata_path(name).unlink()
+    assert bundles.original_filename(name) == "scene.storyboard.json"
+    user_filename = "scene-0123456789abcdef.storyboard.json"
+    bundles.file_path(user_filename).write_bytes(bundles.file_path(name).read_bytes())
+    assert bundles.original_filename(user_filename) == user_filename
 
 
 def test_triggers_are_optional_appearance_is_not(imports: SimpleNamespace) -> None:
@@ -179,6 +241,7 @@ def test_editor_save_refreshes_preview_prompt_and_hash(imports: SimpleNamespace,
     assert bundles.file_path(name).read_bytes() == source
     exported = workspaces.export_copy(name)
     assert exported != name
+    assert bundles.original_filename(exported) == "bundle-edited.storyboard.json"
     exported_data = bundles.decode_json(bundles.file_path(exported).read_bytes())
     assert exported_data["format"] == bundles.BUNDLE_FORMAT
     assert exported_data["page"]["panels"][0]["caption_en"] == page["panels"][0]["caption_en"]
@@ -258,7 +321,11 @@ def test_import_routes_upload_inspect_edit_export(
     )
     code, response = asyncio.run(routes.dispatch(request, "upload"))
     assert code == 200
+    assert response["original_filename"] == "test.json"
     name = response["name"]
+    code, listed = asyncio.run(routes.dispatch(request, "files"))
+    assert code == 200
+    assert listed == {"files": [name], "file_labels": {name: "test.json"}}
     request.query = {"filename": name}
     code, metadata = asyncio.run(routes.dispatch(request, "inspect"))
     assert code == 200

@@ -7,7 +7,15 @@ import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .bundles import BUNDLE_FORMAT, decode_json, file_path, input_directory, parse_bundle, store_upload
+from .bundles import (
+    BUNDLE_FORMAT,
+    decode_json,
+    file_path,
+    input_directory,
+    original_filename,
+    parse_bundle,
+    store_upload,
+)
 from .core import content_hash, core, dumps, inside, load, page_path
 from .importing import draft_image, inspect_payload, moss_dimensions, moss_page, png_base64
 
@@ -56,6 +64,9 @@ def import_payload(filename: str) -> bytes:
 def inspect_import(filename: str, **options: object) -> dict:
     result = dict(inspect_payload(import_payload(filename), **options))
     result["filename"] = filename
+    result["original_filename"] = original_filename(filename)
+    if result["kind"] == "moss":
+        result["title"] = Path(result["original_filename"]).stem.removesuffix(".moss")
     result["editable_copy"] = workspace_bundle(filename) is not None
     return result
 
@@ -78,6 +89,7 @@ def inspect_link(
         }
     ).encode()
     result = dict(inspect_payload(payload, slant_mode=slant_mode, include_triggers=include_triggers))
+    result["source_kind"] = "page"
     result["revision"] = content_hash(project_dir, page_id, dialogue_mode, slant_mode, str(include_triggers))
     return result
 
@@ -149,6 +161,5 @@ def export_copy(filename: str) -> str:
     draft = draft_image(page, cards)
     draft.thumbnail((256, 256))
     bundle["sketch_png_base64"] = png_base64(draft)
-    return store_upload(
-        f"{Path(filename).stem[:60]}-edited.storyboard.json", dumps(bundle).encode(), "storyboard"
-    )
+    stem = Path(original_filename(filename)).stem.removesuffix(".storyboard").removesuffix(".moss")
+    return store_upload(f"{stem[:60]}-edited.storyboard.json", dumps(bundle).encode(), "storyboard")

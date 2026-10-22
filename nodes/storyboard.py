@@ -43,6 +43,7 @@ from .images import (
     paste_panel,
     tensor_images,
 )
+from .importing import inspect_page
 from .workspaces import import_hash, inspect_import
 
 
@@ -285,13 +286,21 @@ class SodaStoryboardPreview(SodaNode):
             else content_hash(project_dir, page_id)
         )
 
-    def execute(self, project_dir: str = "", page_id: str = "", page_info: str = "") -> tuple:
+    def execute(self, project_dir: str = "", page_id: str = "", page_info: str = "") -> dict:
         page, characters = parse_info(page_info) if page_info else load(project_dir, page_id)
         with TemporaryDirectory(prefix="soda-sketch-") as directory:
             path = Path(directory) / "sketch.png"
             core("preview").render_preview(page, path, characters, style="sketch")
             with Image.open(path) as image:
-                return (images_tensor([image.convert("RGB")]),)
+                draft = image.convert("RGB")
+        preview = draft.copy()
+        preview.thumbnail((1024, 1024))
+        metadata = inspect_page(page, characters, [], draft=preview)
+        metadata["revision"] = hashlib.sha256(metadata["page_info"].encode()).hexdigest()
+        return {
+            "ui": {"soda": [{key: value for key, value in metadata.items() if key != "result"}]},
+            "result": (images_tensor([draft]),),
+        }
 
 
 class SodaCropPanel(SodaNode):

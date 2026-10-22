@@ -1,10 +1,13 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { createStoryboardView, previewCSS } from "./storyboard-ui.js";
+import { pageTitle } from "./storyboard-model.js";
 
 const TAB_ID = "soda-storyboard";
 const EMPTY = "上传或拖入 .storyboard.json";
 const IMPORT = "SodaLoadStoryboard";
 const LINK = "SodaLoadStoryboardPage";
+const PREVIEW = "SodaStoryboardPreview";
 const PROJECTS_KEY = "soda-storyboard.projects.v1";
 const state = { projectDir: "", pageId: "", url: "" };
 const notices = new Map();
@@ -47,12 +50,14 @@ function setValue(node, name, value) {
     if (!item) return;
     item.value = value;
     item.callback?.(value);
+    if (name === "filename") node._sodaView?.syncFiles(item.options?.values || [], node._sodaFileLabels);
     node.setDirtyCanvas?.(true, true);
 }
 function status(node, message, error = false) {
     if (!node._sodaView) return;
     node._sodaView.status.textContent = message;
-    node._sodaView.status.style.color = error ? "#e65d68" : "var(--input-text, #ddd)";
+    node._sodaView.status.dataset.error = String(error);
+    node._sodaView.status.hidden = !message;
 }
 function projects() {
     try {
@@ -68,8 +73,12 @@ function remember(path) {
 function combo(node, name, values) {
     const item = widget(node, name);
     if (!item) return;
-    item.type = "combo";
+    if (item._sodaOriginal) {
+        item._sodaOriginal.type = "combo";
+        if (!item.hidden) item.type = "combo";
+    } else item.type = "combo";
     item.options = { ...item.options, values };
+    if (name === "filename") node._sodaView?.syncFiles(values, node._sodaFileLabels);
 }
 async function pages(projectDir) {
     if (!projectDir) return [];
@@ -135,49 +144,26 @@ function renderSidebar(container) {
     if (directory.value) refresh();
 }
 
-function visiblePanel(node) {
-    const root = document.createElement("div");
-    root.className = "soda-preview";
-    const line = document.createElement("div");
-    line.setAttribute("role", "status");
-    const draft = document.createElement("img");
-    draft.alt = "分镜图：火柴人草稿或 MOSS 布局框图";
-    draft.hidden = true;
-    const prompt = document.createElement("textarea");
-    prompt.readOnly = true;
-    prompt.spellcheck = false;
-    prompt.placeholder = "最终投入 MOSS 的完整 JSON 提示词将在这里显示";
-    prompt.setAttribute("aria-label", "最终 MOSS 提示词（只读）");
-    const tools = document.createElement("div");
-    let formatted = true;
-    const renderText = () => {
-        const text = node._sodaMeta?.moss_json || "";
-        try { prompt.value = text ? JSON.stringify(JSON.parse(text), null, formatted ? 2 : 0) : ""; }
-        catch { prompt.value = text; }
-    };
-    const toggle = button("压缩", () => {
-        formatted = !formatted;
-        toggle.textContent = formatted ? "压缩" : "格式化";
-        renderText();
+function visiblePanel(node, linked, preview) {
+    node._sodaView = createStoryboardView(node, {
+        button, linked, preview, onError: report,
+        onUpload: () => node._sodaUploadInput?.click(),
+        onSelect: value => setValue(node, "filename", value),
+        onEdit: () => node._sodaEdit?.(),
+        onExport: () => exportImported(node),
     });
-    tools.append(button("复制提示词", () => navigator.clipboard.writeText(prompt.value)), toggle);
-    root.append(line, draft, tools, prompt);
-    node.addDOMWidget("soda_preview", "soda-preview", root,
-        { serialize: false, hideOnZoom: false, getMinHeight: () => 420 });
-    node._sodaView = { root, status: line, draft, prompt, renderText };
-    status(node, "请先导入分镜包", true);
+    status(node, "请先导入分镜包");
+}
+function previewSource(node) {
+    const input = node.inputs?.find(item => item.name === "page_info" && item.link != null);
+    const link = input ? app.graph?.links[input.link] : null;
+    return link ? app.graph.getNodeById(link.origin_id) : null;
 }
 function applyMetadata(node, metadata) {
     node._sodaMeta = metadata;
-    const view = node._sodaView;
-    if (view) {
-        view.draft.src = `data:image/png;base64,${metadata.draft_png_base64}`;
-        view.draft.hidden = false;
-        view.renderText();
-        status(node, [metadata.summary, ...(metadata.warnings || [])].join("\n"));
-    }
-    if (node._sodaEditButton) node._sodaEditButton.name = metadata.kind === "moss" ?
-        "转换为分镜单后编辑" : "在编辑器中打开";
+    node._sodaView?.render(metadata);
+    if (node.comfyClass === IMPORT || widget(node, "filename")) node.title = `导入分镜 · ${pageTitle(metadata, widget(node, "filename")?.value)}`;
+    status(node, "");
     for (const other of app.graph?._nodes || []) other._sodaRefreshChoices?.();
     node.setDirtyCanvas?.(true, true);
 }
@@ -194,10 +180,8 @@ async function refreshNode(node, linked) {
     const absent = linked ? !values.project_dir || !values.page_id : !values.filename || values.filename === EMPTY;
     if (absent) {
         node._sodaMeta = null;
-        if (node._sodaView) {
-            node._sodaView.prompt.value = "";
-            node._sodaView.draft.hidden = true;
-        }
+        if (node._sodaView) node._sodaView.kind = "page";
+        node._sodaView?.render(null);
         status(node, "请先导入分镜包", true);
         return null;
     }
@@ -212,7 +196,7 @@ async function refreshNode(node, linked) {
         } catch (error) {
             if ((node._sodaGeneration || 0) === generation) {
                 node._sodaMeta = null;
-                if (node._sodaView) { node._sodaView.prompt.value = ""; node._sodaView.draft.hidden = true; }
+                node._sodaView?.render(null);
                 status(node, error.message, true);
             }
             return null; // Automatic restore/refresh failures never create toasts.
@@ -233,6 +217,7 @@ async function uploadFile(node, file) {
     form.append("file", file, file.name);
     const result = await request("upload?kind=storyboard", form);
     const item = widget(node, "filename");
+    node._sodaFileLabels = { ...node._sodaFileLabels, [result.name]: result.original_filename || file.name };
     combo(node, "filename", [...new Set([EMPTY, ...(item.options?.values || []), result.name])]);
     setValue(node, "filename", result.name);
     await node._sodaRefresh?.();
@@ -243,6 +228,7 @@ function attachImporter(node) {
         try {
             const result = await request("files?kind=storyboard");
             const selected = widget(node, "filename").value;
+            node._sodaFileLabels = { ...node._sodaFileLabels, ...result.file_labels };
             combo(node, "filename", [...new Set([EMPTY, ...result.files, ...(selected && selected !== EMPTY ? [selected] : [])])]);
         } catch { /* Automatic list refresh never raises a toast. */ }
     };
@@ -262,35 +248,31 @@ function attachImporter(node) {
         try { await uploadFile(node, input.files[0]); } catch (error) { status(node, error.message, true); report(error); }
         input.value = "";
     };
-    node.addWidget("button", "上传分镜文件", null, () => input.click(), { serialize: false });
     node._sodaUploadInput = input;
-    node._sodaEditButton = node.addWidget("button", "在编辑器中打开", null, async () => {
-        try {
-            const metadata = node._sodaMeta || await node._sodaRefresh();
-            if (!metadata) { status(node, "请先导入分镜包", true); return; }
-            const convert = metadata.kind === "moss";
-            if (convert && !globalThis.confirm("MOSS JSON 转换为分镜单是近似的，需检查格子和文字位置。继续转换？")) return;
-            showEditor(await request("import/edit", { ...query(node), convert_moss: convert }));
-            await node._sodaRefresh();
-        } catch (error) { status(node, error.message, true); report(error); }
-    }, { serialize: false });
-    node.addWidget("button", "另存为新分镜包", null, async () => {
-        try {
-            if (!node._sodaMeta || node._sodaMeta.kind === "moss") {
-                status(node, "请先导入分镜包；MOSS JSON 请先转换后编辑", true); return;
-            }
-            const result = await request("import/export", { filename: widget(node, "filename").value });
-            if (result.bundle) {
-                const url = URL.createObjectURL(new Blob([JSON.stringify(result.bundle, null, 2)], { type: "application/json" }));
-                const download = document.createElement("a");
-                download.href = url; download.download = result.name; download.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            }
-            const files = await request("files?kind=storyboard");
-            combo(node, "filename", [EMPTY, ...files.files]);
-            setValue(node, "filename", result.name);
-        } catch (error) { report(error); }
-    }, { serialize: false });
+}
+async function editImported(node) {
+    const metadata = node._sodaMeta || await node._sodaRefresh();
+    if (!metadata) { status(node, "请先导入分镜包", true); return; }
+    const convert = metadata.kind === "moss";
+    if (convert && !globalThis.confirm("MOSS JSON 转换为分镜单是近似的，需检查格子和文字位置。继续转换？")) return;
+    showEditor(await request("import/edit", { ...query(node), convert_moss: convert }));
+    node._sodaGeneration = (node._sodaGeneration || 0) + 1;
+    node._sodaPending = null;
+    await node._sodaRefresh();
+}
+async function exportImported(node) {
+    if (!node._sodaMeta || node._sodaMeta.kind === "moss") {
+        status(node, "请先导入分镜包；MOSS JSON 请先转换后编辑", true); return;
+    }
+    const result = await request("import/export", { filename: widget(node, "filename").value });
+    if (result.bundle) {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(result.bundle, null, 2)], { type: "application/json" }));
+        const download = document.createElement("a");
+        download.href = url; download.download = result.name; download.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    await node._sodaRefreshFiles();
+    setValue(node, "filename", result.name);
 }
 async function refreshPages(node) {
     const project = widget(node, "project_dir");
@@ -321,9 +303,7 @@ function attachProject(node) {
         await refreshPages(node);
     }));
     node.addDOMWidget("soda_project_picker", "soda-project-picker", row, { serialize: false });
-    node.addWidget("button", "在编辑器中打开", null, () => {
-        startEditor(widget(node, "project_dir").value, widget(node, "page_id").value).catch(report);
-    }, { serialize: false });
+
 }
 async function sourceInfo(node, seen = new Set()) {
     if (!node || seen.has(node.id)) return null;
@@ -428,11 +408,7 @@ app.registerExtension({
             .soda-storyboard-controls { display:flex; flex-wrap:wrap; gap:6px; padding:6px; }
             .soda-storyboard-controls input { width:100%; }
             .soda-storyboard-sidebar iframe { flex:1; min-height:400px; width:100%; border:0; background:white; }
-            .soda-preview { display:flex; flex-direction:column; gap:6px; width:100%; height:100%; min-height:420px; overflow:hidden; }
-            .soda-preview [role=status] { white-space:pre-wrap; font-size:12px; overflow-wrap:anywhere; }
-            .soda-preview img { width:100%; height:45%; min-height:120px; object-fit:contain; background:#fff; }
-            .soda-preview textarea { box-sizing:border-box; width:100%; flex:1; min-height:160px; resize:none; overflow:auto; font:12px/1.5 monospace; }
-            .soda-preview button { margin-right:6px; }
+            ${previewCSS}
         `;
         document.head.append(css);
         app.extensionManager.registerSidebarTab({ id: TAB_ID, title: "分镜", tooltip: "Soda Storyboard",
@@ -443,25 +419,57 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         const linked = nodeData.name === LINK;
         const imported = nodeData.name === IMPORT;
+        const preview = nodeData.name === PREVIEW;
         const choices = ["SodaCropPanel", "SodaCharacterMask"].includes(nodeData.name);
-        if (!linked && !imported && !choices) return;
+        if (!linked && !imported && !preview && !choices) return;
         const created = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             const result = created?.apply(this, arguments);
             if (choices) attachChoices(this);
             else {
-                visiblePanel(this);
-                this._sodaRefresh = () => refreshNode(this, linked);
-                if (linked) attachProject(this); else attachImporter(this);
-                watch(this, ["filename", "project_dir", "page_id", "dialogue_mode", "slant_mode", "include_triggers", "width", "height"], name => {
+                this._sodaEdit = async () => {
+                    if (imported) return editImported(this);
+                    const source = preview ? previewSource(this) : null;
+                    if (source && source !== this && source._sodaEdit) return source._sodaEdit();
+                    const projectDir = widget(this, "project_dir")?.value;
+                    const pageId = widget(this, "page_id")?.value;
+                    if (projectDir && pageId) return startEditor(projectDir, pageId);
+                    if (preview) throw new Error("当前是 page_info 分镜快照，请在来源分镜节点中编辑，或填写项目目录和页面后打开编辑器。");
+                    return startEditor(projectDir, pageId);
+                };
+                visiblePanel(this, linked, preview);
+                this._sodaRefresh = async () => {
+                    const previewInput = preview && this.inputs?.find(input => input.name === "page_info" && input.link != null);
+                    if (previewInput) {
+                        this._sodaPreviewLink = previewInput.link;
+                        const generation = this._sodaGeneration || 0;
+                        const source = previewSource(this);
+                        const metadata = source?._sodaMeta || await source?._sodaRefresh?.();
+                        if ((this._sodaGeneration || 0) !== generation || previewSource(this) !== source) return null;
+                        if (metadata) applyMetadata(this, metadata);
+                        else {
+                            this._sodaMeta = null;
+                            this._sodaView.render(null);
+                            status(this, "上游尚未提供可预览的分镜");
+                        }
+                        return metadata;
+                    }
+                    if (preview && String(widget(this, "page_info")?.value || "").trim()) {
+                        if (!this._sodaMeta) status(this, "运行节点后预览 page_info 分镜");
+                        return this._sodaMeta;
+                    }
+                    return refreshNode(this, linked || preview);
+                };
+                if (linked) attachProject(this); else if (imported) attachImporter(this);
+                watch(this, ["filename", "project_dir", "page_id", "dialogue_mode", "slant_mode", "include_triggers", "width", "height", "page_info"], name => {
                     this._sodaGeneration = (this._sodaGeneration || 0) + 1;
                     this._sodaMeta = null;
                     this._sodaPending = null;
-                    this._sodaView.prompt.value = "";
-                    this._sodaView.draft.hidden = true;
+                    if (name === "filename") this._sodaView.kind = "page";
+                    this._sodaView.render(null);
                     if (imported && name === "filename") {
                         const selected = widget(this, "filename").value;
-                        this.title = selected && selected !== EMPTY ? `导入分镜 · ${selected}` : EMPTY;
+                        this.title = selected && selected !== EMPTY ? `导入分镜 · ${pageTitle({ filename: selected })}` : "导入分镜";
                         for (const other of app.graph?._nodes || []) other._sodaRefreshFiles?.();
                     }
                     if (name === "project_dir") refreshPages(this); else this._sodaRefresh();
@@ -471,8 +479,8 @@ app.registerExtension({
                 }, 1500);
                 timer.unref?.();
                 this._sodaTimer = timer;
-                if (imported && (!widget(this, "filename").value || widget(this, "filename").value === EMPTY)) this.title = EMPTY;
-                this.setSize([Math.max(this.size[0], 500), Math.max(this.size[1], 820)]);
+                if (imported && (!widget(this, "filename").value || widget(this, "filename").value === EMPTY)) this.title = "导入分镜";
+                this.setSize([420, 720]);
             }
             return result;
         };
@@ -481,6 +489,7 @@ app.registerExtension({
             const result = configured?.apply(this, arguments);
             if (choices) this._sodaRefreshChoices?.();
             else if (linked) refreshPages(this);
+            else if (preview) this._sodaRefresh?.();
             else { this._sodaRefreshFiles?.(); this._sodaRefresh?.(); }
             return result;
         };
@@ -488,6 +497,16 @@ app.registerExtension({
         nodeType.prototype.onConnectionsChange = function () {
             const result = connections?.apply(this, arguments);
             this._sodaRefreshChoices?.();
+            if (preview) {
+                this._sodaGeneration = (this._sodaGeneration || 0) + 1;
+                const link = this.inputs?.find(input => input.name === "page_info")?.link ?? null;
+                if (link !== (this._sodaPreviewLink ?? null)) {
+                    this._sodaMeta = null;
+                    this._sodaView?.render(null);
+                }
+                this._sodaPreviewLink = link;
+                this._sodaRefresh?.();
+            }
             return result;
         };
         const executed = nodeType.prototype.onExecuted;
@@ -496,11 +515,16 @@ app.registerExtension({
             if (message?.soda?.[0]) applyMetadata(this, message.soda[0]);
         };
         const removed = nodeType.prototype.onRemoved;
-        nodeType.prototype.onRemoved = function () { clearInterval(this._sodaTimer); return removed?.apply(this, arguments); };
+        nodeType.prototype.onRemoved = function () {
+            clearInterval(this._sodaTimer);
+            this._sodaGeneration = (this._sodaGeneration || 0) + 1;
+            this._sodaView?.destroy();
+            return removed?.apply(this, arguments);
+        };
         const resized = nodeType.prototype.onResize;
         nodeType.prototype.onResize = function (size) {
             resized?.apply(this, arguments);
-            if (this._sodaView) this._sodaView.root.style.height = `${Math.max(420, size[1] - 300)}px`;
+            this._sodaView?.resize();
         };
     },
 });

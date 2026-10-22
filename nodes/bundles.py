@@ -9,12 +9,13 @@ import hashlib
 import importlib
 import io
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
-from .core import NEGATIVE, core, dumps, info, relative_lora, resolution
+from .core import NEGATIVE, core, dumps, info, inside, relative_lora, resolution
 
 BUNDLE_FORMAT = "soda-storyboard-bundle-v1"
 EMPTY_FILE = "上传或拖入 .storyboard.json"
@@ -203,11 +204,14 @@ def describe(page: Any, characters: dict, warnings: list[str], sketch: str = "")
     chosen = core("production.api").select_lora(page, characters) or {}
     texts = core("lettering").page_texts(page)
     dialogue_count = sum(t.kind == "dialogue" for t in texts)
-    main = chosen.get("character_id", "无主角 LoRA")
-    summary = (
-        f"{page.canvas_width}×{page.canvas_height} · {len(page.panels)} 格 · {dialogue_count} 句台词 · "
-        f"建议：{main} LoRA {chosen.get('path', '无')} 强度 {chosen.get('strength', 0)}"
-    )
+    summary = f"{page.canvas_width}×{page.canvas_height} · {len(page.panels)} 格 · {dialogue_count} 句台词"
+    names = {key: card.display_name or key for key, card in characters.items()}
+    if chosen:
+        chosen["path"] = relative_lora(chosen["path"])
+        chosen["display_name"] = names.get(chosen["character_id"], chosen["character_id"])
+        chosen["filename"] = Path(chosen["path"]).name
+        chosen["name"] = Path(chosen["path"]).stem
+        summary += f" · 建议：{chosen['display_name']} LoRA {chosen['strength']:g}"
     appearing = {key for p in page.panels for key in [*p.character_ids, *(f.character_id for f in p.figures)]}
     appearing.update(o.character_id for o in page.overlays)
     warnings = list(warnings)
@@ -221,8 +225,16 @@ def describe(page: Any, characters: dict, warnings: list[str], sketch: str = "")
         "panel_count": len(page.panels),
         "dialogue_count": dialogue_count,
         "lora": chosen,
-        "panels": [{"id": p.id, "order": p.order} for p in sorted(page.panels, key=lambda p: p.order)],
+        "title": str(page.extra.get("title") or page.id),
+        "page_id": page.id,
+        "reading_direction": page.reading_direction,
+        "panels": [
+            {**p.to_dict(), "texts": [t.to_dict() for t in texts if t.panel_id == p.id]}
+            for p in sorted(page.panels, key=lambda p: p.order)
+        ],
+        "texts": [t.to_dict() for t in texts],
         "characters": list(characters),
+        "character_names": names,
     }
 
 
@@ -283,4 +295,34 @@ def store_upload(filename: str, payload: bytes, kind: str) -> str:
         if path.read_bytes() != payload:
             msg = "文件名冲突，请重命名后重试"
             raise ValueError(msg) from None
+    metadata_path = upload_metadata_path(name)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    # Keep the exact original even when the content-addressed name is truncated.
+    try:
+        with metadata_path.open("x", encoding="utf-8") as handle:
+            handle.write(dumps({"original_filename": filename}))
+    except FileExistsError:
+        pass
     return name
+
+
+def upload_metadata_path(filename: str) -> Path:
+    file_path(filename)
+    return inside(input_directory(), f".soda/uploads/{filename}.json")
+
+
+def original_filename(filename: str) -> str:
+    source = file_path(filename)
+    metadata_path = upload_metadata_path(filename)
+    if metadata_path.is_file():
+        metadata = decode_json(metadata_path.read_bytes())
+        original = metadata.get("original_filename", "")
+        if isinstance(original, str) and original and not any(c in original for c in "/\\:\x00"):
+            return original
+    # Legacy uploads have no filename metadata; verify the known upload suffix.
+    match = re.fullmatch(r"(.+)-([0-9a-f]{16})\.(?:storyboard|moss)\.json", filename)
+    if match and source.stat().st_size <= MAX_FILE_BYTES:
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
+        if digest == match[2]:
+            return f"{match[1]}.json"
+    return filename
