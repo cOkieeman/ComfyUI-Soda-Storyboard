@@ -180,7 +180,7 @@ node --test tests/*.mjs
 $env:PYTHONPATH = (Resolve-Path ..\soda-storyboard\src).Path
 $env:PYTHONDONTWRITEBYTECODE = '1'
 $env:PYTHONIOENCODING = 'utf-8'
-uv run --offline --no-project --python .venv\Scripts\python.exe -c "import soda_storyboard.bundle as b; print(b.__file__)"
+uv run --offline --no-project --python .venv\Scripts\python.exe python -c "import soda_storyboard.bundle as b; print(b.__file__)"
 uv run --offline --no-project --python .venv\Scripts\python.exe -m ruff format --check .
 uv run --offline --no-project --python .venv\Scripts\python.exe -m ruff check .
 uv run --offline --no-project --python .venv\Scripts\python.exe -m pytest -ra
