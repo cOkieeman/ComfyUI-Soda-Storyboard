@@ -67,20 +67,25 @@ soda-storyboard export-bundle examples/stretch-color/pages/stretch-color.json --
 
 没有格子的 MOSS JSON 会标成“单画布”。这个示例的尺寸回退为 `1024×1536`，部分框超出画布，在预览里被裁切，原始 bbox 仍保留。如果比例和原稿不符，可以到“高级”里填写宽高。尺寸和格子识别都可能来自推断，复杂重叠或描述中的“格”字有时也会被误读，因此导入后仍要对照原稿看一下。
 
-### 整页与局部示例怎么选
+### 示例工作流
 
-| 示例 | 什么时候用 | 流程与要检查的地方 |
-| --- | --- | --- |
-| [stretch-color.json](example_workflows/stretch-color.json) | 跟着本页试画彩色示例，或从该例开始改分镜。 | 上传配套分镜包 → MOSS 采样 → 解码 → 排字 → 保存。Quality 50 步、CFG 3、`euler / simple`、SLG 单层 22、种子 `20261022`，无 LoRA。全矩形页不接斜切裁剪。 |
-| [minimal_page.json](example_workflows/minimal_page.json) | 使用原有通用整页模板，包含斜切格的后处理。 | 导入 → MOSS 采样 → 斜切裁剪 → 排字 → 保存。默认 shift 5、25 步、CFG 2.5，采样器 `er_sde`，调度器 `simple`，参数与上面的彩色示例不同。 |
-| [panel_redraw.json](example_workflows/panel_redraw.json) | 已有整页图，只想修一格。 | 载入整页 → 切格 → 图生图 → 贴回 → 保存。先选好整页图片和格子，默认降噪 `0.45`。 |
-| [character_swap.json](example_workflows/character_swap.json) | 想对某个角色所在区域做局部重绘。 | 切格 → 人物遮罩 → 局部重绘 → 按同一遮罩合成回原格 → 贴回。切格与遮罩的格子必须一致，默认降噪 `0.85`。需要角色 LoRA 时在原生 Loader 中手选。 |
+[标准工作流 soda_storyboard_standard.json](example_workflows/soda_storyboard_standard.json)：按中文分组说明，完成导入分镜、可选 LoRA、草稿 / 正式整页生成、斜切裁格与排字，也能放大单格或人物局部修细节后缩回贴回。
 
-![整页示例工作流全图](docs/images/comfy-workflow.jpg)
+![标准工作流：整页生成与两种修细节分组](docs/images/soda-storyboard-standard.png)
 
-*minimal_page 在真实 ComfyUI 中的连线。为便于看全图，临时整理了节点位置，截图时尚未导入分镜包或运行采样。*
+上传分镜包，在三个 Loader 中选择本机模型；默认草稿为 25 步、`er_sde / simple`、CFG 2.5，LoRA 与两组修细节默认旁路。正式档把草稿采样器旁路，启用正式组的 SLG 与采样器，使用 50 步、`euler / simple`、CFG 3、SLG 单层 22、shift 5。按各组 Note 切换，整页只启用一个采样器；需要修格时启用对应整组，并将组内两个切格节点选为同一格，局部修图还需选择人物。
 
-示例使用本包节点与 ComfyUI 核心节点，ComfyUI 版本需要支持 `moss_image` 文本编码器与 `EmptyFlux2LatentImage`；彩色示例还使用了 ComfyUI 核心的 SLG 节点。打开修格模板后，除了选好模型、VAE 和需要的 LoRA，还要载入已有的整页图片；采样由你点击运行后才开始。
+修格先放大到长边 1024 并对齐 16，以约 0.45 降噪采样，再缩回原格贴回；局部流程由原图编码与噪声遮罩限制采样，缩回后按羽化遮罩合成。斜切裁格和排字会按实际整页图片尺寸调整几何，可接二采或放大后的图。只需修已有页面时，可用核心 `LoadImage` 替换“整页解码”的图像输出，再启用所需修图组。
+
+[绯音教程工作流 stretch-color.json](example_workflows/stretch-color.json)：配合[彩色分镜教程](docs/tutorial-stretch-color.md)与[起身舒展分镜包](examples/stretch-color/stretch-color.storyboard.json)，使用 50 步、CFG 3、SLG 22 生成无 LoRA 的彩色整页并排字；全矩形页保留模型格框，教程工作流不经过斜切裁格。
+
+| 旧工作流名称（已移除） | 对应新工作流与分组 |
+| --- | --- |
+| `minimal_page.json` | `soda_storyboard_standard.json` 的导入、模型、整页生成、裁格与排字组。 |
+| `panel_redraw.json` | `soda_storyboard_standard.json` 的“单格修细节”组。 |
+| `character_swap.json` | `soda_storyboard_standard.json` 的“局部修细节”组，用人物遮罩修图。 |
+
+两个示例只依赖本节点包与 ComfyUI 核心节点，需要支持 `moss_image`、`EmptyFlux2LatentImage` 与 SLG 的 ComfyUI。模型文件使用官方名称，放在子目录时请在 Loader 下拉列表中重新选择。默认不会自动加载角色卡建议的 LoRA；按模型组 Note 启用 LoRA 后手动选择文件。
 
 ## 安装
 

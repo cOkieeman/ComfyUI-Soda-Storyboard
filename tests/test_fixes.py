@@ -176,22 +176,25 @@ def test_wheel_dependency_matches_metadata() -> None:
     assert "git+" not in requirements
 
 
-@pytest.mark.parametrize("filename", ["minimal_page.json", "panel_redraw.json", "character_swap.json"])
+@pytest.mark.parametrize("filename", ["soda_storyboard_standard.json", "stretch-color.json"])
 def test_workflow_uses_manual_lora_and_real_models(filename: str) -> None:
     text = (ROOT / "example_workflows" / filename).read_text(encoding="utf-8")
     graph = json.loads(text)
     nodes = graph["nodes"]
-    assert nodes[0]["type"] == "SodaLoadStoryboard"
-    assert nodes[0]["widgets_values"][0] == "上传或拖入 .storyboard.json"
-    assert nodes[0]["title"] == "上传或拖入 .storyboard.json"
-    lora = next(n for n in nodes if n["type"] == "LoraLoaderModelOnly")
-    assert not any(n["type"] == "SodaLoadStoryboardLoRA" for n in nodes)
-    assert [i["name"] for i in lora["inputs"]] == ["model"]
+    load = next(n for n in nodes if n["type"] == "SodaLoadStoryboard")
+    assert load["widgets_values"][0] == ""
+    loras = [n for n in nodes if n["type"] in {"LoraLoaderModelOnly", "SodaLoadStoryboardLoRA"}]
+    if filename == "soda_storyboard_standard.json":
+        assert len(loras) == 1
+        assert loras[0]["mode"] == 4
+        assert [i["name"] for i in loras[0]["inputs"]] == ["model"]
+        assert loras[0]["widgets_values"][0] == ""
+    else:
+        assert not loras
     unet = next(n for n in nodes if n["type"] == "UNETLoader")
     clip = next(n for n in nodes if n["type"] == "CLIPLoader")
     assert unet["widgets_values"][0] == DEFAULTS["sft"].replace("\\", "/").rsplit("/", 1)[-1]
     assert clip["widgets_values"][0] == DEFAULTS["clip"]
     assert "/" not in unet["widgets_values"][0]
-    assert lora["widgets_values"][0] == ""
     for placeholder in ("hero.safetensors", "moss_image_sft.safetensors", "qwen3.5_9b.safetensors"):
         assert placeholder not in text

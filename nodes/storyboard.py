@@ -32,9 +32,9 @@ from .core import (
     relative_lora,
     resolution,
 )
+from .geometry import page_at_size
 from .images import (
     character_mask,
-    check_size,
     crop_panel,
     cut_quads,
     images_tensor,
@@ -395,6 +395,7 @@ class SodaPastePanel(SodaNode):
         )
         # Preserve unedited float pixels exactly; a PIL round trip quantizes them.
         page, _ = parse_info(metadata["page_info"])
+        page = page_at_size(page, originals[0].size)
         panel = next(p for p in page.panels if p.id == metadata["panel_id"])
         area = paste_edit_mask(page, panel, protect_text=protect_text)
         editable = images_tensor([area], mask=True).unsqueeze(-1).to(image.device)
@@ -431,8 +432,9 @@ class SodaLetterPage(SodaNode):
         page, _ = parse_info(page_info)
 
         def letter(im: Image.Image) -> Image.Image:
-            check_size(im, page)
-            return core("production.lettering").letter_image(im, page, font=font or None)
+            return core("production.lettering").letter_image(
+                im, page_at_size(page, im.size), font=font or None
+            )
 
         return map_images(image, letter)
 

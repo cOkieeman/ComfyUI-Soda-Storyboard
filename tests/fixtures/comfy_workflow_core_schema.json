@@ -1,0 +1,249 @@
+{
+  "source": "ComfyUI /object_info; public core node interfaces (2026-10-23)",
+  "nodes": {
+    "CLIPLoader": {
+      "inputs": {
+        "required": {
+          "clip_name": "COMBO",
+          "type": "COMBO"
+        },
+        "optional": {
+          "device": "COMBO"
+        }
+      },
+      "outputs": [
+        "CLIP"
+      ],
+      "module": "nodes"
+    },
+    "CLIPTextEncode": {
+      "inputs": {
+        "required": {
+          "text": "STRING",
+          "clip": "CLIP"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "CONDITIONING"
+      ],
+      "module": "nodes"
+    },
+    "EmptyFlux2LatentImage": {
+      "inputs": {
+        "required": {
+          "width": "INT",
+          "height": "INT",
+          "batch_size": "INT"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "LATENT"
+      ],
+      "module": "comfy_extras.nodes_flux"
+    },
+    "GetImageSize": {
+      "inputs": {
+        "required": {
+          "image": "IMAGE"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "INT",
+        "INT",
+        "INT"
+      ],
+      "module": "comfy_extras.nodes_images"
+    },
+    "ImageCompositeMasked": {
+      "inputs": {
+        "required": {
+          "destination": "IMAGE",
+          "source": "IMAGE",
+          "x": "INT",
+          "y": "INT",
+          "resize_source": "BOOLEAN"
+        },
+        "optional": {
+          "mask": "MASK"
+        }
+      },
+      "outputs": [
+        "IMAGE"
+      ],
+      "module": "comfy_extras.nodes_mask"
+    },
+    "ImageScale": {
+      "inputs": {
+        "required": {
+          "image": "IMAGE",
+          "upscale_method": "COMBO",
+          "width": "INT",
+          "height": "INT",
+          "crop": "COMBO"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "IMAGE"
+      ],
+      "module": "nodes"
+    },
+    "ImageToMask": {
+      "inputs": {
+        "required": {
+          "image": "IMAGE",
+          "channel": "COMBO"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "MASK"
+      ],
+      "module": "comfy_extras.nodes_mask"
+    },
+    "KSampler": {
+      "inputs": {
+        "required": {
+          "model": "MODEL",
+          "seed": "INT",
+          "steps": "INT",
+          "cfg": "FLOAT",
+          "sampler_name": "COMBO",
+          "scheduler": "COMBO",
+          "positive": "CONDITIONING",
+          "negative": "CONDITIONING",
+          "latent_image": "LATENT",
+          "denoise": "FLOAT"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "LATENT"
+      ],
+      "module": "nodes"
+    },
+    "MaskToImage": {
+      "inputs": {
+        "required": {
+          "mask": "MASK"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "IMAGE"
+      ],
+      "module": "comfy_extras.nodes_mask"
+    },
+    "ModelSamplingAuraFlow": {
+      "inputs": {
+        "required": {
+          "model": "MODEL",
+          "shift": "FLOAT"
+        },
+        "optional": {
+          "sampling": "COMBO"
+        }
+      },
+      "outputs": [
+        "MODEL"
+      ],
+      "module": "comfy_extras.nodes_model_advanced"
+    },
+    "SaveImage": {
+      "inputs": {
+        "required": {
+          "images": "IMAGE",
+          "filename_prefix": "STRING"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "IMAGE"
+      ],
+      "module": "nodes"
+    },
+    "SetLatentNoiseMask": {
+      "inputs": {
+        "required": {
+          "samples": "LATENT",
+          "mask": "MASK"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "LATENT"
+      ],
+      "module": "nodes"
+    },
+    "SkipLayerGuidanceDiTSimple": {
+      "inputs": {
+        "required": {
+          "model": "MODEL",
+          "double_layers": "STRING",
+          "single_layers": "STRING",
+          "start_percent": "FLOAT",
+          "end_percent": "FLOAT"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "MODEL"
+      ],
+      "module": "comfy_extras.nodes_slg"
+    },
+    "UNETLoader": {
+      "inputs": {
+        "required": {
+          "unet_name": "COMBO",
+          "weight_dtype": "COMBO"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "MODEL"
+      ],
+      "module": "nodes"
+    },
+    "VAEDecode": {
+      "inputs": {
+        "required": {
+          "samples": "LATENT",
+          "vae": "VAE"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "IMAGE"
+      ],
+      "module": "nodes"
+    },
+    "VAEEncode": {
+      "inputs": {
+        "required": {
+          "pixels": "IMAGE",
+          "vae": "VAE"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "LATENT"
+      ],
+      "module": "nodes"
+    },
+    "VAELoader": {
+      "inputs": {
+        "required": {
+          "vae_name": "COMBO"
+        },
+        "optional": {}
+      },
+      "outputs": [
+        "VAE"
+      ],
+      "module": "nodes"
+    }
+  }
+}

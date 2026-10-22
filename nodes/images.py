@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, ImageChops, ImageDraw
 
 from .core import core, dumps, parse_info, select_panel, single_prompt
+from .geometry import page_at_size
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -41,15 +42,9 @@ def map_images(batch: Any, operation: Callable[[Image.Image], Image.Image]) -> t
     return (images_tensor([operation(image) for image in tensor_images(batch)]),)
 
 
-def check_size(image: Image.Image, page: Any) -> None:
-    if image.size != page.canvas_size:
-        msg = f"整页图尺寸 {image.size} 与分镜画布 {page.canvas_size} 不一致，请先恢复原始尺寸"
-        raise ValueError(msg)
-
-
 def crop_panel(image: Image.Image, page_info: str, selector: str, *, resize: bool) -> tuple:
     page, characters = parse_info(page_info)
-    check_size(image, page)
+    page = page_at_size(page, image.size)
     panel = select_panel(page, selector)
     imaging = core("production.imaging")
     box = imaging.panel_box(panel)
@@ -83,7 +78,10 @@ def paste_panel(
         msg = "panel_box 版本无效，请连接切格节点的 panel_box 输出"
         raise ValueError(msg)
     page, _ = parse_info(metadata["page_info"])
-    check_size(original, page)
+    if list(original.size) != metadata["canvas_size"]:
+        msg = "整页图尺寸与切格时不一致，请使用同一整页图或重新切格"
+        raise ValueError(msg)
+    page = page_at_size(page, original.size)
     panel = select_panel(page, metadata["panel_id"])
     imaging = core("production.imaging")
     box = imaging.panel_box(panel)
@@ -128,10 +126,9 @@ def character_mask(
     imaging = core("production.imaging")
     mask = imaging.figure_mask(panel, page, character_id, margin=margin, feather=feather)
     if scope == "整页":
-        check_size(image, page)
-        full = Image.new("L", image.size)
+        full = Image.new("L", page.canvas_size)
         full.paste(mask, imaging.panel_box(panel)[:2])
-        return full
+        return full.resize(image.size, Image.Resampling.NEAREST)
     if scope != "格子":
         msg = "图像范围必须为格子或整页"
         raise ValueError(msg)
@@ -141,10 +138,13 @@ def character_mask(
 
 def cut_quads(image: Image.Image, page_info: str, inset: int, border: int) -> Image.Image:
     page, _ = parse_info(page_info)
-    check_size(image, page)
     if inset < 0 or border < 1:
         msg = "收缩像素不能为负，格框粗细至少为 1"
         raise ValueError(msg)
+    ratio = min(image.width / page.canvas_width, image.height / page.canvas_height)
+    page = page_at_size(page, image.size)
+    inset *= ratio
+    border = max(1, round(border * ratio))
     imaging = core("production.imaging")
     quad_bounds = Image.new("L", image.size)
     interiors = Image.new("L", image.size)
