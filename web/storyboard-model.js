@@ -109,22 +109,51 @@ function pageTexts(metadata, page, panels) {
     return result;
 }
 
-/** Read-order panels and their texts, or original item-order MOSS entries with no invented panels. */
+const MOSS_TYPES = { text: "文字", character: "角色", object: "物件", panel: "物件" };
+const MOSS_ORDER = { text: 0, character: 1, object: 2, panel: 2 };
+
+function mossPolygon(item, metadata, moss) {
+    if (item.shape) return shapePolygon(item.shape);
+    if (!Array.isArray(item.bbox) || item.bbox.length !== 4 || !item.bbox.every(value => Number.isFinite(Number(value)))) return null;
+    const [a, b, c, d] = item.bbox.map(Number);
+    let [x, y, right, bottom] = moss.bbox_format === "xyxy" ? [a, b, c, d] : [b, a, d, c];
+    const width = positive(metadata.width), height = positive(metadata.height);
+    const space = moss.bbox_coord_space || "abs_centralized";
+    if (space === "abs_centralized") { x += Math.floor(width / 2); right += Math.floor(width / 2); y += Math.floor(height / 2); bottom += Math.floor(height / 2); }
+    else if (space === "normalized") { x *= width; right *= width; y *= height; bottom *= height; }
+    x = Math.max(0, x); y = Math.max(0, y); right = Math.min(width, right); bottom = Math.min(height, bottom);
+    return shapePolygon({ x, y, w: right - x, h: bottom - y });
+}
+
+function mossEntries(metadata) {
+    const moss = parsed(metadata.moss_json);
+    const layout = object(metadata.moss_layout);
+    const items = list(layout.items || metadata.items || moss.items).map((value, index) => {
+        const item = object(value), id = text(item.id || `item-${index + 1}`), label = text(item.label || "object");
+        const content = text(item.text) || (label === "text" ? text(item.caption).slice(0, 12) : "");
+        return { id, number: item.index || index + 1, kind: "item", itemType: label, group: label,
+            groupLabel: MOSS_TYPES[label] || "物件", shot: "", characters: [],
+            description: label === "text" ? "" : text(item.caption), polygon: mossPolygon(item, metadata, moss),
+            texts: content ? [normalizeText({ ...item, id: `${id}-text`, text: content, kind: "文字" }, `${id}-text`, metadata, {})] : [] };
+    });
+    const panels = list(layout.panels || metadata.panels).filter(panel => panel.shape && Array.isArray(panel.item_ids));
+    const used = new Set(panels.flatMap(panel => [panel.item_id, ...panel.item_ids]));
+    const entries = ordered(panels, "rtl").map((panel, index) => {
+        const children = items.filter(item => item.id !== panel.item_id && panel.item_ids.includes(item.id));
+        return { id: panel.id, number: index + 1, kind: "panel", group: "panels", groupLabel: "", shot: "",
+            characters: children.filter(item => item.itemType === "character").map(item => ({ id: item.id, name: item.description.slice(0, 24) })),
+            description: [text(panel.description), ...children.filter(item => item.description).map(item => `${item.groupLabel}：${item.description}`)].filter(Boolean).join("\n"),
+            texts: children.flatMap(item => item.texts), polygon: shapePolygon(panel.shape) };
+    });
+    const unassigned = items.filter(item => !used.has(item.id)).sort((a, b) => (MOSS_ORDER[a.itemType] ?? 2) - (MOSS_ORDER[b.itemType] ?? 2));
+    entries.push(...unassigned.map(item => ({ ...item, groupLabel: `${panels.length ? "其他条目 · " : ""}${item.groupLabel}` })));
+    return entries;
+}
+
+/** One shared list for node/viewer, with actual MOSS geometry and text-first item groups. */
 export function panelEntries(metadata = {}) {
     const { page, characters } = pageData(metadata);
-    if (metadata.kind === "moss" || metadata.source_kind === "moss") {
-        const moss = parsed(metadata.moss_json);
-        return list(metadata.items || moss.items).map((item, index) => {
-            item = object(item);
-            const id = text(item.id || `item-${index + 1}`);
-            const characterId = text(item.character_id || "");
-            return { id, number: index + 1, kind: "item", shot: text(item.label),
-                characters: characterId ? [{ id: characterId, name: characterName(characterId, metadata, characters) }] : [],
-                description: text(item.caption), polygon: null,
-                texts: item.text == null || !text(item.text).trim() ? [] :
-                    [normalizeText({ ...item, id: `${id}-text` }, `${id}-text`, metadata, characters)] };
-        });
-    }
+    if (metadata.kind === "moss" || metadata.source_kind === "moss") return mossEntries(metadata);
     const sourcePanels = Array.isArray(metadata.panels) && metadata.panels.every(panel => panel.shape) ?
         metadata.panels : list(page.panels);
     const direction = metadata.reading_direction || page.reading_direction || "rtl";
@@ -157,15 +186,23 @@ export function informationTags(metadata = {}) {
     const height = finite(metadata.height || page.canvas_height);
     const entries = panelEntries(metadata);
     const sourceKind = metadata.source_kind || metadata.kind || "page";
-    const panelCount = metadata.panel_count ?? entries.filter(entry => entry.kind === "panel").length;
+    const panelCount = sourceKind === "moss" ? entries.filter(entry => entry.kind === "panel").length :
+        metadata.panel_count ?? entries.filter(entry => entry.kind === "panel").length;
     const dialogueCount = metadata.dialogue_count ?? entries.reduce((sum, entry) => sum +
         entry.texts.filter(value => value.kind === "dialogue").length, 0);
     const tags = [];
     if (width > 0 && height > 0) tags.push({ id: "canvas", label: `${width}×${height}` });
     if (sourceKind === "moss") {
-        tags.push({ id: "panels", label: `${entries.length} 个条目` });
-    } else tags.push({ id: "panels", label: `${panelCount} 格` });
-    tags.push({ id: "dialogue", label: `${dialogueCount} 句台词` });
+        const items = list(metadata.items || metadata.moss_layout?.items || parsed(metadata.moss_json).items);
+        const count = metadata.text_count ?? items.filter(item => item.label === "text").length;
+        tags.push({ id: "items", label: `${items.length} 个条目` });
+        tags.push({ id: "text-items", label: `${count} 个文字条目` });
+        tags.push({ id: "panels", label: panelCount ? `${panelCount} 格` : "单画布" });
+        if (metadata.dimensions_inferred) tags.push({ id: "inferred", label: "尺寸推断" });
+    } else {
+        tags.push({ id: "panels", label: `${panelCount} 格` });
+        tags.push({ id: "dialogue", label: `${dialogueCount} 句台词` });
+    }
     const lora = object(metadata.lora);
     if (text(lora.path).trim()) {
         const name = lora.display_name || characterName(lora.character_id || "", metadata, characters) ||
@@ -191,6 +228,9 @@ export function buildStoryboardModel(metadata = {}, filename = "") {
         tags: informationTags(metadata), warnings: list(metadata.warnings).map(text), entries: panelEntries(metadata),
         prompt: typeof metadata.moss_json === "string" ? metadata.moss_json : JSON.stringify(metadata.moss_json || {}),
         image: metadata.draft_png_base64 ? `data:image/png;base64,${metadata.draft_png_base64}` : "",
+        detailsLabel: (metadata.kind === "moss" || metadata.source_kind === "moss") && !panelEntries(metadata).some(entry => entry.kind === "panel") ? "条目" : "逐格",
+        legend: (metadata.kind === "moss" || metadata.source_kind === "moss") ? list(metadata.legend).length ? metadata.legend :
+            [{label:"物件",color:"#2d805a"},{label:"角色",color:"#2563a6"},{label:"文字",color:"#b34922"}] : [],
         kind: metadata.source_kind || metadata.kind || "page" };
 }
 

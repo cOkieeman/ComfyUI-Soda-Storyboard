@@ -33,6 +33,9 @@ export const viewerCSS = `
 .soda-sv-toolbar { flex:none; padding:9px 12px; border-bottom:1px solid var(--border-color, #62626b); }
 .soda-sv-zoom { min-width:46px; font-size:12px; font-variant-numeric:tabular-nums; }
 .soda-sv-hint { margin-left:auto; color:var(--descrip-text, var(--input-text, #bdbdc7)); font-size:12px; }
+.soda-sv-legend { display:flex; flex-wrap:wrap; gap:12px; font-size:12px; }
+.soda-sv-legend span { border-left:3px solid; padding-left:5px; }
+.soda-sv-group { margin:8px 0; font-size:14px; }
 .soda-sv-viewport { flex:1; position:relative; min-height:0; min-width:0; overflow:hidden; background:#000; touch-action:none; cursor:grab; user-select:none; isolation:isolate; }
 .soda-sv-viewport.soda-sv-dragging { cursor:grabbing; }
 .soda-sv-stage { position:absolute; left:0; top:0; transform-origin:0 0; background:white; will-change:transform; }
@@ -155,6 +158,8 @@ export function openStoryboardViewer(options = {}) {
     zoomLabel.setAttribute("aria-label", "当前缩放比例");
     const hint = element("span", "soda-sv-hint", "滚轮缩放 · 拖动平移");
     toolbar.append(fit, actual, zoomLabel, hint);
+    const legend = element("div", "soda-sv-legend");
+    toolbar.append(legend);
     const viewport = element("div", "soda-sv-viewport");
     viewport.tabIndex = 0;
     viewport.setAttribute("role", "region");
@@ -286,8 +291,11 @@ export function openStoryboardViewer(options = {}) {
         list.replaceChildren(); svg.replaceChildren();
         svg.setAttribute("viewBox", `0 0 ${Math.max(1, model.width || 1)} ${Math.max(1, model.height || 1)}`);
         const rows = model.entries || [];
+        let previousGroup;
         if (!rows.length) list.append(element("p", "soda-sv-list-empty", "暂无逐格内容。"));
         for (const [index, entry] of rows.entries()) {
+            if (entry.groupLabel && previousGroup !== entry.group) list.append(element("h3", "soda-sv-group", entry.groupLabel));
+            previousGroup = entry.group;
             const key = `${index}:${entry.id || index}`;
             const card = element("article", "soda-sv-entry");
             card.tabIndex = 0;
@@ -332,6 +340,7 @@ export function openStoryboardViewer(options = {}) {
             listenContent(polygon, "pointerleave", onLeave);
             svg.append(polygon);
             shapes.set(key, polygon);
+            if (entry.kind !== "panel") continue;
             // Place each marker inside the upper right corner, matching manga
             // reading direction without changing the authored reading order.
             const top = Math.min(...points.map(point => point[1]));
@@ -352,6 +361,11 @@ export function openStoryboardViewer(options = {}) {
         contentController = new AbortController();
         model = settings.model || buildStoryboardModel(settings.metadata || {}, settings.filename || "");
         title.textContent = settings.title || model.title || "分镜查看器";
+        panelsTab.textContent = model.detailsLabel || "逐格";
+        legend.replaceChildren(...(model.legend || []).map(item => {
+            const label = element("span", "", item.label); label.style.borderColor = item.color; return label;
+        }));
+        legend.hidden = !model.legend?.length;
         image.alt = `${title.textContent} · 分镜图`;
         tags.replaceChildren(...(model.tags || []).map(tag => element("span", "soda-sv-tag", typeof tag === "string" ? tag : tag.label)));
         warnings.replaceChildren();

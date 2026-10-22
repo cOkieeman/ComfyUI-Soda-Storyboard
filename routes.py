@@ -95,8 +95,8 @@ async def inspect_request(request: Any, action: str) -> dict:
             inspect_import,
             request.query.get("filename", ""),
             **options,
-            width=int(request.query.get("width", 1024)),
-            height=int(request.query.get("height", 1536)),
+            width=int(request.query.get("width", 0)),
+            height=int(request.query.get("height", 0)),
         )
     else:
         result = await asyncio.to_thread(
@@ -153,8 +153,8 @@ async def mutation_request(request: Any, action: str) -> dict:
             materialize,
             body["filename"],
             convert_moss=body.get("convert_moss") is True,
-            width=int(body.get("width", 1024)),
-            height=int(body.get("height", 1536)),
+            width=int(body.get("width", 0)),
+            height=int(body.get("height", 0)),
         )
         result = await asyncio.to_thread(editor_start, str(root), page_id)
         return {**result, "project_dir": str(root), "page_id": page_id}

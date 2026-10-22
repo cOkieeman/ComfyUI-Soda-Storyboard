@@ -373,6 +373,30 @@ test("a pending source preview cannot reappear after its connection is removed",
     node.onRemoved(); source.onRemoved();
 });
 
+test("single-canvas MOSS shares item groups, legend and hover boxes across node and viewer", async () => {
+    const node = create(ImportNode);
+    const items = [
+        { id: "object", label: "object", index: 1, caption: "台灯", shape: { x: 200, y: 20, w: 60, h: 100 } },
+        { id: "character", label: "character", index: 2, caption: "抱书的旅人", shape: { x: 80, y: 30, w: 100, h: 180 } },
+        { id: "text", label: "text", index: 3, text: "欢迎光临", caption: "English placeholder", shape: { x: 20, y: 20, w: 60, h: 180 } },
+    ];
+    node.onExecuted({ soda: [{ ...metadata("external.moss.json"), items, panels: [], panel_count: 0,
+        moss_layout: { items, panels: [], single_canvas: true }, dimensions_inferred: true }] });
+    assert(uiButton(node, "条目"));
+    const list = findElement(node._sodaView.root, element => element.className === "soda-panel-list");
+    assert.deepEqual(list.children.filter(element => element.className === "soda-entry-group").map(element => element.textContent),
+        ["文字", "角色", "物件"]);
+    assert.equal(findElement(node._sodaView.root, element => element.className === "soda-image-legend").children.length, 3);
+    assert(findElement(list, element => element.textContent === "文字：欢迎光临"));
+    assert(!findElement(list, element => element.textContent === "English placeholder"));
+    await uiButton(node, "⛶ 查看").onclick();
+    const viewer = node._sodaView.viewer.element;
+    assert.equal(findElement(viewer, element => element.className === "soda-sv-tab").textContent, "条目");
+    findElement(viewer, element => element.className === "soda-sv-entry").fire("pointerenter");
+    assert.equal(findElement(viewer, element => element.tag === "polygon").classList.contains("soda-sv-active"), true);
+    node.onRemoved();
+});
+
 test("large viewer opens current metadata, closes with Escape, and refreshes on next opening", async () => {
     const node = create(ImportNode);
     node.onExecuted({ soda: [{ ...metadata("viewer.json"), title: "第一张", draft_png_base64: "FIRST" }] });

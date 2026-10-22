@@ -174,8 +174,8 @@ class SodaLoadStoryboard(SodaLoadStoryboardPage):
                     "BOOLEAN",
                     {"default": True, "label_on": "提示词包含触发词", "label_off": "不包含触发词"},
                 ),
-                "width": ("INT", {"default": 1024, "min": 16, "max": 16384, "step": 16}),
-                "height": ("INT", {"default": 1536, "min": 16, "max": 16384, "step": 16}),
+                "width": ("INT", {"default": 0, "min": 0, "max": 16384, "step": 16}),
+                "height": ("INT", {"default": 0, "min": 0, "max": 16384, "step": 16}),
             }
         }
 
@@ -186,8 +186,8 @@ class SodaLoadStoryboard(SodaLoadStoryboardPage):
         dialogue_mode: str = "跟随页面",
         slant_mode: str = "cut",
         include_triggers: bool = True,
-        width: int = 1024,
-        height: int = 1536,
+        width: int = 0,
+        height: int = 0,
     ) -> str:
         return import_hash(
             filename,
@@ -206,8 +206,8 @@ class SodaLoadStoryboard(SodaLoadStoryboardPage):
         dialogue_mode: str = "跟随页面",
         slant_mode: str = "cut",
         include_triggers: bool = True,
-        width: int = 1024,
-        height: int = 1536,
+        width: int = 0,
+        height: int = 0,
     ) -> dict:
         metadata = inspect_import(
             filename,

@@ -102,17 +102,44 @@ test("panels without explicit order fall back to top-to-bottom and right-to-left
     assert.deepEqual(panelEntries({ page: { ...page, panels, reading_direction: "ltr" } }).slice(0, 2).map(entry => entry.id), ["left", "right"]);
 });
 
-test("MOSS lists original captions and text in item order and never invents highlights", () => {
+test("MOSS groups real text before objects and exposes item boxes for highlighting", () => {
     const items = [{ label: "object", caption: "A quiet library", bbox: [0, 0, 10, 10] },
         { label: "text", caption: "Vertical dialogue", text: "你好", speaker_id: "sylvia", bbox: [0, 0, 10, 10] }];
     const moss = { ...metadata, kind: "moss", source_kind: "moss", items, panels: [], moss_json: JSON.stringify({ summary: {}, items }) };
     const entries = panelEntries(moss);
     assert.equal(entries.length, 2);
-    assert.equal(entries[0].description, "A quiet library");
-    assert.equal(entries[1].texts[0].text, "你好");
-    assert(entries.every(entry => entry.kind === "item" && entry.polygon === null));
-    assert.equal(informationTags(moss).find(tag => tag.id === "panels").label, "2 个条目");
+    assert.equal(entries[0].texts[0].text, "你好");
+    assert.equal(entries[0].description, "");
+    assert.equal(entries[0].groupLabel, "文字");
+    assert.equal(entries[1].description, "A quiet library");
+    assert(entries.every(entry => entry.kind === "item" && entry.polygon?.length === 4));
+    assert.equal(informationTags(moss).find(tag => tag.id === "items").label, "2 个条目");
+    assert.equal(informationTags(moss).find(tag => tag.id === "panels").label, "单画布");
+    assert.equal(informationTags(moss).find(tag => tag.id === "text-items").label, "1 个文字条目");
+    assert.equal(buildStoryboardModel(moss).detailsLabel, "条目");
     assert.equal(panelEntries({ kind: "moss", moss_json: JSON.stringify({ items }) }).length, 2);
+});
+
+test("MOSS panels contain their text and leave unmatched items visible in groups", () => {
+    const items = [
+        { id: "item-1", index: 1, label: "object", caption: "Right panel", shape: { type: "rect", x: 500, y: 0, w: 480, h: 700 } },
+        { id: "item-2", index: 2, label: "text", text: "欢迎光临", caption: "English placeholder", shape: { type: "rect", x: 600, y: 40, w: 60, h: 200 } },
+        { id: "item-3", index: 3, label: "character", caption: "抱着书的旅人", shape: { type: "rect", x: 10, y: 750, w: 700, h: 700 } },
+    ];
+    const panels = [{ id: "p1", order: 1, item_id: "item-1", item_ids: ["item-1", "item-2"],
+        description: "Right panel", shape: items[0].shape }];
+    const data = { kind: "moss", width: 1000, height: 1500, dimensions_inferred: true,
+        moss_layout: { items, panels, single_canvas: false }, items, panels, panel_count: 1 };
+    const entries = panelEntries(data);
+    assert.equal(entries[0].kind, "panel");
+    assert.equal(entries[0].texts[0].text, "欢迎光临");
+    assert(!entries[0].description.includes("English placeholder"));
+    assert.equal(entries[1].groupLabel, "其他条目 · 角色");
+    assert.equal(entries[1].description, "抱着书的旅人");
+    assert.deepEqual(entries[1].polygon[0], [10, 750]);
+    assert.equal(buildStoryboardModel(data).detailsLabel, "逐格");
+    assert(informationTags(data).some(tag => tag.label === "尺寸推断"));
+    assert(informationTags(data).some(tag => tag.label === "1 格"));
 });
 
 test("advanced visibility keeps native inputs hidden by default and dimensions exclusive to MOSS", () => {

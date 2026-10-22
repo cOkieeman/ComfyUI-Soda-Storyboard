@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import io
-import math
 from functools import lru_cache
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,10 +14,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .bundles import BUNDLE_FORMAT, compile_result, decode_json, describe, parse_bundle, validate_moss
 from .core import NEGATIVE, core, dumps, info, resolution
+from .moss import COLORS, analyze_layout, boxes, item_text, resolve_dimensions, text_direction
 
-MAX_CANVAS = 16384
-BBOX_COMPONENTS = 4
 MIN_LABEL_SIZE = 8
+MAX_FONT_SIZE = 24
+MIN_FONT_SIZE = 5
 
 
 def png_base64(image: Image.Image) -> str:
@@ -36,43 +36,13 @@ def draft_image(page: Any, characters: dict) -> Image.Image:
             return image.convert("RGB")
 
 
-def moss_dimensions(value: dict, width: int, height: int) -> tuple[int, int]:
-    canvas = value.get("canvas", {})
-    if not isinstance(canvas, dict):
-        canvas = {}
-    width = int(value.get("width", canvas.get("width", width)))
-    height = int(value.get("height", canvas.get("height", height)))
-    if not 1 <= width <= MAX_CANVAS or not 1 <= height <= MAX_CANVAS:
-        msg = "MOSS 画布宽高必须在 1 到 16384 之间"
-        raise ValueError(msg)
-    return width, height
+def moss_dimensions(value: dict, width: int = 0, height: int = 0) -> tuple[int, int]:
+    resolved_width, resolved_height, _ = resolve_dimensions(value, width, height)
+    return resolved_width, resolved_height
 
 
 def moss_boxes(value: dict, width: int, height: int) -> list[tuple[dict, tuple]]:
-    result = []
-    space, fmt = value.get("bbox_coord_space", "abs_centralized"), value.get("bbox_format", "yxyx")
-    if space not in {"abs_centralized", "abs", "absolute", "normalized"} or fmt not in {"yxyx", "xyxy"}:
-        msg = "不支持此 MOSS bbox 坐标空间或格式"
-        raise ValueError(msg)
-    for item in value["items"]:
-        if (
-            not isinstance(item, dict)
-            or not isinstance(item.get("bbox"), list)
-            or len(item["bbox"]) != BBOX_COMPONENTS
-        ):
-            msg = "MOSS 每个条目必须有四个数值的 bbox"
-            raise ValueError(msg)
-        a, b, c, d = (float(v) for v in item["bbox"])
-        x, y, right, bottom = (b, a, d, c) if fmt == "yxyx" else (a, b, c, d)
-        if space == "abs_centralized":
-            x, right, y, bottom = x + width // 2, right + width // 2, y + height // 2, bottom + height // 2
-        elif space == "normalized":
-            x, right, y, bottom = x * width, right * width, y * height, bottom * height
-        if not all(math.isfinite(v) for v in (x, y, right, bottom)) or right <= x or bottom <= y:
-            msg = "MOSS bbox 必须是有限、面积大于零的矩形"
-            raise ValueError(msg)
-        result.append((item, (max(0, x), max(0, y), min(width, right), min(height, bottom))))
-    return result
+    return boxes(value, width, height)
 
 
 def moss_page(value: dict, width: int, height: int) -> Any:
@@ -121,45 +91,87 @@ def moss_page(value: dict, width: int, height: int) -> Any:
     )
 
 
+def text_lines(text: str, font: Any, width: int) -> list[str]:
+    lines = []
+    for paragraph in text.split("\n"):
+        line = ""
+        for char in paragraph:
+            if line and font.getlength(line + char) > width:
+                lines.append(line)
+                line = ""
+            line += char
+        lines.append(line)
+    return lines
+
+
+def label_layout(
+    text: str, width: int, height: int, direction: str, path: Any, *, max_size: int = MAX_FONT_SIZE
+) -> tuple:
+    for size in range(max_size, MIN_FONT_SIZE - 1, -1):
+        font = ImageFont.truetype(str(path), size) if path else ImageFont.load_default(size=size)
+        advance = size + 3
+        if direction == "vertical":
+            capacity = max(1, height // advance)
+            lines = [
+                paragraph[start : start + capacity]
+                for paragraph in text.split("\n")
+                for start in range(0, len(paragraph), capacity)
+            ]
+            fits = (
+                len(lines) * advance <= width
+                and max((len(line) for line in lines), default=0) * advance <= height
+            )
+        else:
+            lines = text_lines(text, font, width)
+            fits = len(lines) * advance <= height
+        if fits:
+            break
+    return font, lines, size + 3
+
+
 def moss_preview(value: dict, width: int, height: int) -> Image.Image:
     scale = min(1.0, 1024 / max(width, height))
     image = Image.new("RGB", (max(1, round(width * scale)), max(1, round(height * scale))), "white")
     draw = ImageDraw.Draw(image)
     path = core("preview").find_font()
-    font = ImageFont.truetype(str(path), 14) if path else ImageFont.load_default(size=14)
-    if not value["items"]:
-        draw.rectangle((0, 0, image.width - 1, image.height - 1), outline="#2d805a", width=2)
-        draw.text(
-            (8, 8), str(value["summary"].get("caption", "No layout boxes"))[:120], font=font, fill="black"
-        )
-    colors = {"text": "#b34922", "character": "#2563a6", "object": "#2d805a", "panel": "#2d805a"}
+    rendered = []
     for item, bounds in moss_boxes(value, width, height):
         box = tuple(round(v * scale) for v in bounds)
         if box[2] <= box[0] or box[3] <= box[1]:
             continue
-        color = colors.get(item.get("label", "object"), "#666666")
+        color = COLORS.get(item.get("label", "object"), COLORS["object"])
         draw.rectangle(box, outline=color, width=2)
-        text = str(item.get("caption", ""))[:100]
-        if item.get("text"):
-            text += "\n" + str(item["text"])
-        # Clip each label to its own bbox rather than spilling into neighbours.
-        if box[2] - box[0] < MIN_LABEL_SIZE or box[3] - box[1] < MIN_LABEL_SIZE:
+        rendered.append((item, box, color))
+    # Transparent labels do not erase other object/character/text boundaries.
+    for item, box, color in sorted(rendered, key=lambda entry: entry[0].get("label") == "text"):
+        text = item_text(item)
+        if not text or box[2] - box[0] < MIN_LABEL_SIZE or box[3] - box[1] < MIN_LABEL_SIZE:
             continue
-        label = Image.new("RGB", (box[2] - box[0] - 4, box[3] - box[1] - 4), "white")
+        width, height = box[2] - box[0] - 6, box[3] - box[1] - 6
+        if item.get("label") != "text":
+            height = min(height, 56)
+        direction = text_direction(box) if item.get("label") == "text" else "horizontal"
+        font, lines, advance = label_layout(
+            text, width, height, direction, path, max_size=24 if item.get("label") == "text" else 16
+        )
+        label = Image.new("RGBA", (width, height))
         label_draw = ImageDraw.Draw(label)
-        limit = max(1, (label.width - 8) // 14)
-        rows = []
-        max_rows = max(1, label.height // 18)
-        for line in io.StringIO(text):
-            for start in range(0, len(line), limit):
-                rows.append(line[start : start + limit].rstrip("\n"))
-                if len(rows) >= max_rows:
-                    break
-            if len(rows) >= max_rows:
-                break
-        label_draw.multiline_text((4, 4), "\n".join(rows), font=font, fill=color)
-        image.paste(label, (box[0] + 2, box[1] + 2), None)
-        draw.rectangle(box, outline=color, width=2)
+        for index, line in enumerate(lines):
+            if direction == "vertical":
+                for row, char in enumerate(line):
+                    label_draw.text(
+                        (width - (index + 1) * advance, row * advance),
+                        char,
+                        font=font,
+                        fill=color,
+                        stroke_width=1,
+                        stroke_fill="white",
+                    )
+            else:
+                label_draw.text(
+                    (0, index * advance), line, font=font, fill=color, stroke_width=1, stroke_fill="white"
+                )
+        image.paste(label, (box[0] + 3, box[1] + 3), label)
     return image
 
 
@@ -191,8 +203,8 @@ def inspect_page(
 def inspect_payload(
     payload: bytes,
     *,
-    width: int = 1024,
-    height: int = 1536,
+    width: int = 0,
+    height: int = 0,
     dialogue_mode: str = "跟随页面",
     slant_mode: str = "cut",
     include_triggers: bool = True,
@@ -200,7 +212,10 @@ def inspect_payload(
     value = decode_json(payload)
     if "summary" in value and "items" in value:
         validate_moss(value)
-        width, height = moss_dimensions(value, width, height)
+        width, height, inferred = resolve_dimensions(value, width, height)
+        layout = analyze_layout(value, width, height)
+        text_count = sum(item.get("label") == "text" for item in value["items"])
+        layout_label = f"{len(layout['panels'])} 格" if layout["panels"] else "单画布"
         page = moss_page(value, width, height)
         result = (dumps(value), width, height, resolution(width, height), "", 0.0, NEGATIVE, info(page, {}))
         metadata = describe(page, {}, [])
@@ -209,16 +224,29 @@ def inspect_payload(
             source_kind="moss",
             title="",
             page_id="",
-            panels=[],
-            panel_count=0,
+            panels=layout["panels"],
+            panel_count=len(layout["panels"]),
+            single_canvas=layout["single_canvas"],
+            moss_layout=layout,
+            dimensions_inferred=inferred,
+            text_count=text_count,
+            legend=[
+                {"label": name, "color": COLORS[kind]}
+                for kind, name in (("object", "物件"), ("character", "角色"), ("text", "文字"))
+            ],
             items=value["items"],
-            summary=f"{width}×{height} · {len(value['items'])} 个条目",
+            summary=(
+                f"{width}×{height} · {len(value['items'])} 个条目 · {text_count} 个文字条目 · {layout_label}"
+            ),
             moss_json=result[0],
             width=width,
             height=height,
             result=result,
             draft_png_base64=png_base64(moss_preview(value, width, height)),
-            warnings=["MOSS JSON 没有分镜结构；转为分镜单是近似转换，请检查格子和文字位置。"],
+            warnings=[
+                *([f"画布尺寸为推断值：{width}×{height}"] if inferred else []),
+                "MOSS JSON 转为分镜单是近似转换，请检查格子和文字位置。",
+            ],
         )
     else:
         page, cards, warnings, _ = parse_bundle(value, dialogue_mode)

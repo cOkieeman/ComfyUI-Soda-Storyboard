@@ -83,10 +83,10 @@ def test_three_formats_have_visible_draft_and_exact_prompt(imports: SimpleNamesp
     if kind == "moss":
         assert json.loads(result["moss_json"]) == value
         assert result["kind"] == "moss"
-        assert result["panels"] == []
-        assert result["panel_count"] == 0
+        assert len(result["panels"]) == 2
+        assert result["panel_count"] == 2
         assert result["items"] == value["items"]
-        assert result["summary"] == "320×240 · 4 个条目"
+        assert result["summary"] == "320×240 · 4 个条目 · 1 个文字条目 · 2 格"
     elif kind == "page":
         assert imports.bundles.MISSING_CHARACTERS in result["warnings"]
         assert result["result"][4:6] == ("", 0.0)

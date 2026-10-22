@@ -29,7 +29,10 @@ export const previewCSS = `
 .soda-tabs button { border:0; border-radius:4px 4px 0 0; flex:1; background:transparent; }
 .soda-tabs button[aria-selected=true] { background:var(--soda-input); box-shadow:inset 0 -2px var(--primary-color,#58a6ff); font-weight:600; }
 .soda-tab-body { display:flex; flex-direction:column; flex:1 1 0; min-height:0; min-width:0; overflow:hidden; }
-.soda-image-pane { display:flex; align-items:center; justify-content:center; flex:1; min-height:0; width:100%; overflow:hidden; background:#000; border-radius:3px; }
+.soda-image-pane { display:flex; flex-direction:column; flex:1; min-height:0; width:100%; overflow:hidden; background:#000; border-radius:3px; }
+.soda-image-frame { display:flex; align-items:center; justify-content:center; width:100%; flex:1; min-height:0; overflow:hidden; }
+.soda-image-legend { display:flex; flex-wrap:wrap; gap:12px; flex:none; width:100%; padding:4px 6px; background:var(--soda-bg); color:var(--soda-text); font-size:12px; }
+.soda-image-legend span { border-left:3px solid; padding-left:5px; }
 .soda-image-pane img { display:block; width:100%; height:100%; min-height:0; min-width:0; object-fit:contain; cursor:zoom-in; }
 .soda-image-empty { padding:12px; color:#ccc; font-size:12px; text-align:center; }
 .soda-prompt-pane { display:flex; flex-direction:column; flex:1; min-height:0; gap:5px; }
@@ -39,6 +42,8 @@ export const previewCSS = `
 .soda-panel-entry { padding:10px 4px; border-bottom:1px solid var(--soda-border); overflow-wrap:anywhere; }
 .soda-panel-entry strong { font-size:14px; }
 .soda-panel-entry p { margin:4px 0 0; font-size:13px; white-space:pre-wrap; }
+.soda-entry-group { padding:8px 4px 3px; font-size:13px; font-weight:600; }
+.soda-size-hint { flex:none; font-size:12px; }
 .soda-advanced { flex:none; text-align:left; }
 .soda-preview[data-compact=true] .soda-tabs,.soda-preview[data-compact=true] .soda-tab-body,.soda-preview[data-compact=true] .soda-warnings,.soda-preview[data-compact=true] .soda-advanced { display:none; }
 @container (max-width:340px) { .soda-file-row select { flex-basis:100%; width:100%; } .soda-file-row button { flex:1 0 auto; } }
@@ -108,7 +113,10 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
     const empty = document.createElement("span");
     empty.className = "soda-image-empty";
     empty.textContent = "上传或拖入分镜文件，查看整页分镜图";
-    imagePane.append(draft, empty);
+    const imageFrame = document.createElement("div"); imageFrame.className = "soda-image-frame";
+    imageFrame.append(draft, empty);
+    const legend = document.createElement("div"); legend.className = "soda-image-legend";
+    imagePane.append(imageFrame, legend);
     const promptPane = document.createElement("div");
     promptPane.className = "soda-prompt-pane";
     const prompt = document.createElement("textarea");
@@ -155,7 +163,9 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
     advancedButton.className = "soda-advanced";
     advancedButton.hidden = preview;
     advancedButton.setAttribute("aria-expanded", "false");
-    root.append(row, tags, warnings, line, tabs, body, advancedButton);
+    const sizeHint = document.createElement("div"); sizeHint.className = "soda-size-hint";
+    sizeHint.textContent = "宽高填 0 为自动；正数覆盖文件尺寸。";
+    root.append(row, tags, warnings, line, tabs, body, advancedButton, sizeHint);
     const domWidget = node.addDOMWidget("soda_preview", "soda-preview", root, {
         serialize: false, hideOnZoom: false, hideInPanel: true,
         getMinHeight: () => 136, getHeight: () => "100%",
@@ -184,6 +194,12 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
             empty.hidden = !!model?.image;
             if (model?.image) draft.src = model.image;
             else draft.removeAttribute?.("src");
+            tabButtons[2].textContent = model?.detailsLabel || "逐格";
+            legend.replaceChildren(...(model?.legend || []).map(item => {
+                const label = document.createElement("span"); label.textContent = item.label;
+                label.style.borderColor = item.color; return label;
+            }));
+            legend.hidden = !model?.legend?.length;
             tags.replaceChildren(...(model?.tags || []).map(tag => {
                 const element = document.createElement("span"); element.className = "soda-tag"; element.textContent = tag.label; return element;
             }));
@@ -194,7 +210,14 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
                 close.setAttribute("aria-label", `关闭提示：${text}`); warning.append(content, close); return warning;
             }));
             warnings.hidden = !warnings.children.length;
-            list.replaceChildren(...(model?.entries || []).map(entry => {
+            let group;
+            list.replaceChildren(...(model?.entries || []).flatMap(entry => {
+                const rows = [];
+                if (entry.groupLabel && group !== entry.group) {
+                    const heading = document.createElement("li"); heading.className = "soda-entry-group";
+                    heading.textContent = entry.groupLabel; rows.push(heading);
+                }
+                group = entry.group;
                 const item = document.createElement("li"); item.className = "soda-panel-entry";
                 const title = document.createElement("strong");
                 const names = entry.characters.map(character => character.name).join("、");
@@ -204,9 +227,10 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
                 if (entry.description && entry.kind !== "text") { const description = document.createElement("p"); description.textContent = entry.description; item.append(description); }
                 for (const text of entry.texts) {
                     const element = document.createElement("p");
-                    element.textContent = `${text.kind === "narration" ? "旁白" : text.kind === "sfx" ? "音效" : text.speaker || "台词"}：${text.text}`; item.append(element);
+                    const prefix = text.speaker || ({ narration: "旁白", sfx: "音效", thought: "心声", "文字": "文字" }[text.kind] || "台词");
+                    element.textContent = `${prefix}：${text.text}`; item.append(element);
                 }
-                return item;
+                rows.push(item); return rows;
             }));
             edit.disabled = !metadata;
             edit.title = metadata?.kind === "moss" ? "转换为分镜单后编辑（近似转换）" : "在编辑器中打开";
@@ -225,6 +249,10 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
         for (const [name, shown] of Object.entries(visible)) setWidgetVisible(field(node, name), shown);
         advancedButton.textContent = view.advanced ? "▾ 高级" : "▸ 高级";
         advancedButton.setAttribute("aria-expanded", String(view.advanced));
+        sizeHint.hidden = !view.advanced || (node._sodaMeta?.kind || view.kind) !== "moss";
+        for (const [name, label] of [["width", "宽度（0 自动）"], ["height", "高度（0 自动）"]]) {
+            const item = field(node, name); if (item) item.label = label;
+        }
         node.setDirtyCanvas?.(true, true);
     }
     function openViewer(triggerElement) {

@@ -102,7 +102,7 @@ def import_hash(filename: str, options: dict) -> str:
     return hashlib.sha256(payload + dumps(options).encode()).hexdigest()
 
 
-def materialize(filename: str, *, convert_moss: bool = False, width: int = 1024, height: int = 1536) -> tuple:
+def materialize(filename: str, *, convert_moss: bool = False, width: int = 0, height: int = 0) -> tuple:
     with _WORKSPACE_LOCK:
         return _materialize(filename, convert_moss=convert_moss, width=width, height=height)
 
