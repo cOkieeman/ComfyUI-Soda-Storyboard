@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-soda-storyboard"
 version = "0.1.0"
-description = "ComfyUI nodes for Soda Storyboard page compilation and manga post-processing"
+description = "Import soda-storyboard bundles or MOSS layout JSON, preview the page and prompt, and render manga pages with MOSS-Image: slanted panel cutting, Chinese lettering and panel fixes."
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 dependencies = [
@@ -15,6 +15,7 @@ Repository = "https://github.com/cOkieeman/ComfyUI-Soda-Storyboard"
 PublisherId = "cokieeman"
 DisplayName = "Soda Storyboard"
 Icon = ""
+includes = []
 
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.9"]
