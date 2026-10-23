@@ -132,7 +132,19 @@ export function createStoryboardView(node, { button, onEdit, onExport, onUpload,
         try { prompt.value = formatted && text ? JSON.stringify(JSON.parse(text), null, 2) : text; }
         catch { prompt.value = text; }
     };
-    const copy = button("复制", async () => { await navigator.clipboard.writeText(prompt.value); });
+    const copy = button("复制", async () => {
+        try {
+            if (globalThis.navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(prompt.value);
+                return;
+            }
+        } catch { /* A denied clipboard permission can still allow the selection fallback. */ }
+        const focus = document.activeElement;
+        try {
+            prompt.focus(); prompt.select();
+            if (!document.execCommand?.("copy")) throw new Error("复制失败，请选中提示词后手动复制。");
+        } finally { focus?.focus?.({ preventScroll: true }); }
+    });
     const toggle = button("格式化", () => { formatted = !formatted; toggle.textContent = formatted ? "原始输出" : "格式化"; renderText(); });
     tools.append(copy, toggle);
     promptPane.append(tools, prompt);

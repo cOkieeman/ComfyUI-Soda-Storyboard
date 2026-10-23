@@ -84,9 +84,9 @@ def test_crop_without_english_caption(plugin: ModuleType, page_info: str, captio
     )
     assert crop.size == (128, 208)
     for phrase in (
-        "close-up",
-        "low-angle view",
-        "a young traveler",
+        "特写",
+        "仰视",
+        "年轻的旅人",
         "两位旅人在河边交谈",
         "one frame",
         "no panel borders",
@@ -103,16 +103,18 @@ def test_caption_can_use_unicode_punctuation(plugin: ModuleType, page_info: str)
     adapter = importlib.import_module(f"{plugin.__name__}.nodes.core")
     page, characters = adapter.parse_info(page_info)
     page.panels[0].caption_en = "A traveler’s smile"
+    page.panels[0].use_custom_caption = True
     assert "A traveler’s smile" in adapter.single_prompt(page.panels[0], characters)
 
 
-def test_crop_requires_some_description(plugin: ModuleType, page_info: str) -> None:
+def test_crop_without_scene_keeps_core_figure_semantics(plugin: ModuleType, page_info: str) -> None:
     adapter = importlib.import_module(f"{plugin.__name__}.nodes.core")
     page, characters = adapter.parse_info(page_info)
     page.panels[0].caption_en = ""
     page.panels[0].description = "  "
-    with pytest.raises(ValueError, match="caption_en 或 description"):
-        adapter.single_prompt(page.panels[0], characters)
+    prompt = adapter.single_prompt(page.panels[0], characters, page)
+    assert "年轻的旅人" in prompt
+    assert "no panel borders" in prompt
 
 
 def test_mask_scope_default(plugin: ModuleType) -> None:

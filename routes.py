@@ -5,12 +5,15 @@ from __future__ import annotations
 import asyncio
 import importlib
 import ipaddress
+import os
+import signal
+import subprocess
 import threading
 from typing import Any
 from urllib.parse import quote, urlsplit
 
 from .nodes.bundles import MAX_FILE_BYTES, file_path, list_files, original_filename, store_upload
-from .nodes.core import core, inside, page_path, project_root
+from .nodes.core import core, editable_id, inside, page_path, project_root
 from .nodes.workspaces import export_copy, inspect_import, inspect_link, materialize
 
 _EDITOR_LOCK = threading.Lock()
@@ -58,6 +61,7 @@ def editor_start(project_dir: str, page_id: str = "") -> dict:
     root = project_root(project_dir)
     edit = core("edit")
     if page_id:
+        editable_id(page_id)
         core("io").load_page(page_path(root, page_id))
     # Store performs the same project validation as the core CLI before launch.
     core("server.store").Store(root)
@@ -67,9 +71,25 @@ def editor_start(project_dir: str, page_id: str = "") -> dict:
         port = state.get("port", 0)
         health = edit.health(port)
         reused = edit.same_project(health, root)
+        process = None
         if not reused:
-            _, port, health = edit.launch(root, 0, detach=True)
-        edit.write_state(state_path, port, health)
+            process, port, health = edit.launch(root, 0, detach=True)
+        try:
+            edit.write_state(state_path, port, health)
+        except BaseException:
+            if process is not None and process.poll() is None:
+                # Match the core CLI: a Windows venv launcher can have a
+                # different PID from the interpreter serving this instance.
+                if edit.matches(edit.health(port), health, root):
+                    os.kill(health["pid"], signal.SIGTERM)
+                else:
+                    process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+            raise
     suffix = f"#page={quote(page_id, safe='')}" if page_id else ""
     return {"url": f"http://127.0.0.1:{port}/{suffix}", "port": port, "reused": reused}
 

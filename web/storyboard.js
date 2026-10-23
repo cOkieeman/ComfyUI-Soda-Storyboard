@@ -12,6 +12,7 @@ const PROJECTS_KEY = "soda-storyboard.projects.v1";
 const state = { projectDir: "", pageId: "", url: "" };
 const notices = new Map();
 let sidebar;
+let sidebarGeneration = 0;
 
 async function request(path, body) {
     const options = body === undefined ? {} : body instanceof FormData ? { method: "POST", body } : {
@@ -103,6 +104,8 @@ async function startEditor(projectDir, pageId) {
     showEditor(result);
 }
 function renderSidebar(container) {
+    const generation = ++sidebarGeneration;
+    let requestGeneration = 0;
     sidebar = container;
     container.replaceChildren();
     container.classList.add("soda-storyboard-sidebar");
@@ -114,14 +117,16 @@ function renderSidebar(container) {
     page.setAttribute("aria-label", "分镜页面");
     page.add(new Option(state.pageId || "选择页面", state.pageId));
     const refresh = async () => {
+        const requestId = ++requestGeneration;
+        const current = () => generation === sidebarGeneration && requestId === requestGeneration && sidebar === container;
         try {
             const path = directory.value;
             const list = await pages(path);
-            if (path !== directory.value) return;
+            if (!current() || path !== directory.value) return;
             page.replaceChildren(...list.map(p => new Option(p.id, p.id)));
             if (list.some(p => p.id === state.pageId)) page.value = state.pageId;
             Object.assign(state, { projectDir: path, pageId: page.value });
-        } catch (error) { page.replaceChildren(new Option(error.message, "")); }
+        } catch (error) { if (current()) page.replaceChildren(new Option(error.message, "")); }
     };
     directory.onchange = () => { remember(directory.value); refresh(); };
     page.onchange = () => { state.pageId = page.value; };
@@ -186,7 +191,7 @@ async function refreshNode(node, linked) {
         return null;
     }
     const generation = node._sodaGeneration || 0;
-    node._sodaPending = (async () => {
+    const pending = (async () => {
         try {
             if (node._sodaMeta?.revision) values.revision = node._sodaMeta.revision;
             const metadata = await request(`${linked ? "link" : "inspect"}?${new URLSearchParams(values)}`);
@@ -200,9 +205,10 @@ async function refreshNode(node, linked) {
                 status(node, error.message, true);
             }
             return null; // Automatic restore/refresh failures never create toasts.
-        } finally { if ((node._sodaGeneration || 0) === generation) node._sodaPending = null; }
+        } finally { if (node._sodaPending === pending) node._sodaPending = null; }
     })();
-    return node._sodaPending;
+    node._sodaPending = pending;
+    return pending;
 }
 function watch(node, names, changed) {
     for (const name of names) {
@@ -213,12 +219,16 @@ function watch(node, names, changed) {
     }
 }
 async function uploadFile(node, file) {
+    const generation = node._sodaUploadGeneration = (node._sodaUploadGeneration || 0) + 1;
     const form = new FormData();
     form.append("file", file, file.name);
-    const result = await request("upload?kind=storyboard", form);
+    let result;
+    try { result = await request("upload?kind=storyboard", form); }
+    catch (error) { if (generation !== node._sodaUploadGeneration) return null; throw error; }
     const item = widget(node, "filename");
     node._sodaFileLabels = { ...node._sodaFileLabels, [result.name]: result.original_filename || file.name };
     combo(node, "filename", [...new Set([EMPTY, ...(item.options?.values || []), result.name])]);
+    if (generation !== node._sodaUploadGeneration) return result;
     setValue(node, "filename", result.name);
     await node._sodaRefresh?.();
     return result;
@@ -324,12 +334,16 @@ async function sourceInfo(node, seen = new Set()) {
 }
 function attachChoices(node) {
     node._sodaRefreshChoices = async () => {
+        const generation = node._sodaChoicesGeneration = (node._sodaChoicesGeneration || 0) + 1;
         try {
             const input = node.inputs?.find(i => i.name === "page_info");
+            const linkId = input?.link;
+            const snapshot = widget(node, "page_info")?.value;
             const link = input?.link != null ? app.graph.links[input.link] : null;
             const value = link ? await sourceInfo(app.graph.getNodeById(link.origin_id)) :
                 JSON.parse(widget(node, "page_info")?.value || "null");
-            if (!value?.page) return;
+            if (generation !== node._sodaChoicesGeneration || input?.link !== linkId ||
+                widget(node, "page_info")?.value !== snapshot || !value?.page) return;
             const panels = [...value.page.panels].sort((a, b) => a.order - b.order);
             const ids = panels.map(p => p.id);
             combo(node, "panel", ids);
@@ -413,7 +427,7 @@ app.registerExtension({
         document.head.append(css);
         app.extensionManager.registerSidebarTab({ id: TAB_ID, title: "分镜", tooltip: "Soda Storyboard",
             icon: "pi pi-book", type: "custom", render: renderSidebar,
-            destroy: () => { sidebar = undefined; } });
+            destroy: () => { sidebarGeneration++; sidebar = undefined; } });
         installDrop();
     },
     async beforeRegisterNodeDef(nodeType, nodeData) {
@@ -499,6 +513,7 @@ app.registerExtension({
             this._sodaRefreshChoices?.();
             if (preview) {
                 this._sodaGeneration = (this._sodaGeneration || 0) + 1;
+                this._sodaPending = null;
                 const link = this.inputs?.find(input => input.name === "page_info")?.link ?? null;
                 if (link !== (this._sodaPreviewLink ?? null)) {
                     this._sodaMeta = null;
@@ -518,6 +533,8 @@ app.registerExtension({
         nodeType.prototype.onRemoved = function () {
             clearInterval(this._sodaTimer);
             this._sodaGeneration = (this._sodaGeneration || 0) + 1;
+            this._sodaChoicesGeneration = (this._sodaChoicesGeneration || 0) + 1;
+            this._sodaUploadGeneration = (this._sodaUploadGeneration || 0) + 1;
             this._sodaView?.destroy();
             return removed?.apply(this, arguments);
         };

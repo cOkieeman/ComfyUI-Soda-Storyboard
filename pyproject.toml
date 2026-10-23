@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-soda-storyboard"
-version = "0.1.0"
+version = "0.1.1"
 description = "Import soda-storyboard bundles or MOSS layout JSON, preview the page and prompt, and render manga pages with MOSS-Image: slanted panel cutting, Chinese lettering and panel fixes."
 requires-python = ">=3.12"
 license = { file = "LICENSE" }

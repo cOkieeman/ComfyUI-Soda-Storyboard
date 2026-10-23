@@ -44,6 +44,7 @@ def map_images(batch: Any, operation: Callable[[Image.Image], Image.Image]) -> t
 
 def crop_panel(image: Image.Image, page_info: str, selector: str, *, resize: bool) -> tuple:
     page, characters = parse_info(page_info)
+    prompt = single_prompt(select_panel(page, selector), characters, page)
     page = page_at_size(page, image.size)
     panel = select_panel(page, selector)
     imaging = core("production.imaging")
@@ -68,7 +69,7 @@ def crop_panel(image: Image.Image, page_info: str, selector: str, *, resize: boo
             "page_info": page_info,
         }
     )
-    return crop, mask, single_prompt(panel, characters), metadata
+    return crop, mask, prompt, metadata
 
 
 def paste_panel(
@@ -136,7 +137,9 @@ def character_mask(
     return mask.resize(image.size, Image.Resampling.NEAREST)
 
 
-def cut_quads(image: Image.Image, page_info: str, inset: int, border: int) -> Image.Image:
+def cut_quads(
+    image: Image.Image, page_info: str, inset: int, border: int, *, redraw_borders: bool = True
+) -> Image.Image:
     page, _ = parse_info(page_info)
     if inset < 0 or border < 1:
         msg = "收缩像素不能为负，格框粗细至少为 1"
@@ -159,6 +162,8 @@ def cut_quads(image: Image.Image, page_info: str, inset: int, border: int) -> Im
     # protects neighbours even when their bounding rectangles overlap.
     result = image.copy()
     result.paste("white", mask=ImageChops.subtract(quad_bounds, interiors))
+    if not redraw_borders:
+        return result
     draw = ImageDraw.Draw(result)
     for panel in page.panels:
         if panel.shape_type == "quad":

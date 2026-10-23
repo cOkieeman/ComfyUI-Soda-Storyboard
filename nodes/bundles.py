@@ -7,19 +7,33 @@ import hashlib
 import importlib
 import io
 import json
+import os
 import re
+import tempfile
+import threading
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 
-from .core import NEGATIVE, core, dialogue_override, dumps, info, inside, relative_lora, resolution
+from .core import (
+    NEGATIVE,
+    core,
+    dialogue_override,
+    dumps,
+    generation_canvas,
+    info,
+    inside,
+    relative_lora,
+    resolution,
+)
 
 BUNDLE_FORMAT = "soda-storyboard-bundle-v1"
 EMPTY_FILE = "上传或拖入 .storyboard.json"
 EMPTY_MOSS = "上传或拖入 .moss.json"
 MAX_FILE_BYTES = 16 * 1024 * 1024
 MISSING_CHARACTERS = "未包含角色卡，LoRA 和外观描述缺失"
+_UPLOAD_LOCK = threading.Lock()
 
 
 def input_directory() -> Path:
@@ -75,6 +89,7 @@ def sketch_thumbnail(encoded: str) -> str:
 
 def parse_bundle(value: dict, dialogue_mode: str = "跟随页面") -> tuple[Any, dict, list[str], str]:
     page, cards, _, warnings = core("bundle").load_bundle(value)
+    generation_canvas(*page.canvas_size)
     mode = dialogue_override(dialogue_mode)
     if mode:
         page.dialogue_mode = mode
@@ -93,14 +108,16 @@ def read_bundle(filename: str, dialogue_mode: str = "跟随页面") -> tuple:
 def compile_page_bundle(
     page: Any, characters: dict, slant_mode: str = "cut", *, include_triggers: bool = True
 ) -> dict:
+    generation_canvas(*page.canvas_size)
     return core("bundle").compile_bundle(
         {
             "format": BUNDLE_FORMAT,
             "page": page.to_dict(),
+            "project": {"lora_policy": page.lora_policy},
             "characters": {key: card.to_dict() for key, card in characters.items()},
         }
         if characters
-        else page.to_dict(),
+        else {**page.to_dict(), "lora_policy": page.lora_policy},
         slant_mode=slant_mode,
         include_triggers=include_triggers,
     )
@@ -145,16 +162,18 @@ def compile_result(
     return result_outputs(page, characters, compiled, include_triggers=include_triggers)
 
 
-def translation_status(warnings: list[str]) -> dict:
-    # compile_bundle currently exposes strings, not validation issue codes.
-    # Ignore its aggregate TODO warning; only per-panel warnings carry status.
-    states = {}
-    for warning in warnings:
-        match = re.match(r"第 (\d+) 格英文译文(缺失|已过期)，", warning)
-        if match:
-            states[match[1]] = "missing" if match[2] == "缺失" else "stale"
+def translation_status(page: Any, characters: dict) -> dict:
+    captions = core("captions")
+    states = {
+        str(panel.order): captions.translation_state(panel, page, characters)
+        for panel in page.panels
+        if (page.caption_language or "en") == "en" and not captions.custom_caption_enabled(panel, page)
+    }
+    states = {key: state for key, state in states.items() if state not in {"fresh", "preserved"}}
     return {
-        "state": "stale" if "stale" in states.values() else "missing" if states else "fresh",
+        "state": next(
+            (state for state in ("legacy", "stale", "missing") if state in states.values()), "fresh"
+        ),
         "panels": states,
     }
 
@@ -181,7 +200,7 @@ def describe(
     return {
         "summary": summary,
         "warnings": warnings,
-        "translation_status": translation_status(compiled["warnings"]) if compiled is not None else None,
+        "translation_status": translation_status(page, characters) if compiled is not None else None,
         "sketch_png_base64": sketch,
         "page_info": info(page, characters),
         "panel_count": len(page.panels),
@@ -248,24 +267,36 @@ def store_upload(filename: str, payload: bytes, kind: str) -> str:
     suffix = ".storyboard.json" if kind == "storyboard" else ".moss.json"
     # Content addressing avoids silently overwriting a previously imported copy.
     name = f"{Path(filename).stem[:80]}-{hashlib.sha256(payload).hexdigest()[:16]}{suffix}"
-    path = file_path(name)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with path.open("xb") as handle:
-            handle.write(payload)
-    except FileExistsError:
-        if path.read_bytes() != payload:
+    with _UPLOAD_LOCK:
+        path = file_path(name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.read_bytes() != payload:
             msg = "文件名冲突，请重命名后重试"
-            raise ValueError(msg) from None
-    metadata_path = upload_metadata_path(name)
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    # Keep the exact original even when the content-addressed name is truncated.
-    try:
-        with metadata_path.open("x", encoding="utf-8") as handle:
-            handle.write(dumps({"original_filename": filename}))
-    except FileExistsError:
-        pass
+            raise ValueError(msg)
+        # Publish the label first, then the completed data. Readers never see a
+        # partially written JSON, including during duplicate concurrent uploads.
+        metadata_path = upload_metadata_path(name)
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_bytes(metadata_path, dumps({"original_filename": filename}).encode())
+        if not path.exists():
+            atomic_bytes(path, payload)
     return name
+
+
+def atomic_bytes(path: Path, payload: bytes) -> None:
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent, prefix=".upload-", suffix=".tmp", delete=False
+        ) as handle:
+            temporary = Path(handle.name)
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def upload_metadata_path(filename: str) -> Path:
@@ -276,11 +307,13 @@ def upload_metadata_path(filename: str) -> Path:
 def original_filename(filename: str) -> str:
     source = file_path(filename)
     metadata_path = upload_metadata_path(filename)
-    if metadata_path.is_file():
+    try:
         metadata = decode_json(metadata_path.read_bytes())
         original = metadata.get("original_filename", "")
         if isinstance(original, str) and original and not any(c in original for c in "/\\:\x00"):
             return original
+    except (OSError, ValueError, TypeError):
+        pass  # Missing or damaged labels must not break the entire files list.
     # Legacy uploads have no filename metadata; verify the known upload suffix.
     match = re.fullmatch(r"(.+)-([0-9a-f]{16})\.(?:storyboard|moss)\.json", filename)
     if match and source.stat().st_size <= MAX_FILE_BYTES:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .core import core
+from .core import core, generation_canvas
 
 MAX_CANVAS = 16384
 COLORS = {"object": "#2d805a", "character": "#2563a6", "text": "#b34922"}
@@ -23,6 +23,7 @@ def resolve_dimensions(value: dict, width: int = 0, height: int = 0) -> tuple[in
         msg = "MOSS 画布宽高必须在 1 到 16384 之间；高级选项填 0 为自动"
         raise ValueError(msg)
     inferred = any(message.startswith("画布尺寸缺失") for message in report["guesses"])
+    generation_canvas(*page.canvas_size)
     return page.width, page.height, inferred
 
 

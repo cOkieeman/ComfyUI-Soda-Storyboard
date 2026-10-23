@@ -204,3 +204,8 @@ test("translation tags show core warning status and retain mixed counts", () => 
     assert.equal(tags.find(tag => tag.id === "translation").label, "英文译文：过期（1 格过期、1 格缺失）");
     assert(!informationTags({ kind: "moss", translation_status: { state: "fresh" } }).some(tag => tag.id === "translation"));
 });
+
+test("review #10 legacy translation badge asks to retranslate", () => {
+    const tags = informationTags({ translation_status: { state: "legacy", panels: { "1": "legacy" } } });
+    assert(tags.some(tag => tag.id === "translation" && tag.label.includes("旧格式，需要重新翻译")));
+});

@@ -203,7 +203,7 @@ export function informationTags(metadata = {}) {
         tags.push({ id: "panels", label: `${panelCount} 格` });
         tags.push({ id: "dialogue", label: `${dialogueCount} 句台词` });
         const status = object(metadata.translation_status);
-        const label = ({ fresh: "新鲜", stale: "过期", missing: "缺失" })[status.state];
+        const label = ({ fresh: "新鲜", stale: "过期", missing: "缺失", legacy: "旧格式，需要重新翻译" })[status.state];
         if (label) {
             const states = Object.values(object(status.panels));
             const missing = states.filter(state => state === "missing").length;

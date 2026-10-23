@@ -414,11 +414,21 @@ class SodaCutQuads(SodaNode):
                 **image_inputs(),
                 "inset": ("INT", {"default": 12, "min": 0, "max": 512}),
                 "border": ("INT", {"default": 3, "min": 1, "max": 64}),
-            }
+            },
+            "optional": {
+                "redraw_borders": (
+                    "BOOLEAN",
+                    {"default": True, "tooltip": "原图已有格线时可关闭，保留原图格框；斜切裁剪仍生效"},
+                )
+            },
         }
 
-    def execute(self, image: Any, page_info: str, inset: int = 12, border: int = 3) -> tuple:
-        return map_images(image, lambda im: cut_quads(im, page_info, inset, border))
+    def execute(
+        self, image: Any, page_info: str, inset: int = 12, border: int = 3, redraw_borders: bool = True
+    ) -> tuple:
+        return map_images(
+            image, lambda im: cut_quads(im, page_info, inset, border, redraw_borders=redraw_borders)
+        )
 
 
 class SodaLetterPage(SodaNode):

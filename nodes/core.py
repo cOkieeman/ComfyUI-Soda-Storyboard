@@ -6,11 +6,13 @@ import hashlib
 import importlib
 import json
 import os
+import re
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
 INSTALL = "请先安装 soda-storyboard：pip install -r requirements.txt（在本节点包目录运行）"
 NEGATIVE = "low quality, blurry, bad anatomy, extra limbs, watermark, signature, rough sketch lines"
+FIRST_PRINTABLE = 32
 type JSON = dict[str, Any]
 
 
@@ -49,6 +51,26 @@ def page_path(root: Path, page_id: str) -> Path:
         msg = "页面 id 无效，请填写 pages 目录内的文件名（不含 .json）"
         raise ValueError(msg)
     return inside(root, f"pages/{page_id}.json")
+
+
+def editable_id(identifier: str) -> str:
+    """Match the core editor and reject Windows device/control names before writes."""
+    if (
+        not identifier
+        or identifier != identifier.strip()
+        or any(c in identifier for c in '/\\:.\x00?*<>|"')
+        or any(ord(c) < FIRST_PRINTABLE for c in identifier)
+        or re.fullmatch(
+            r"CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³]", identifier, re.IGNORECASE
+        )
+    ):
+        raise ValueError(f"编辑副本 id 无效：{identifier!r}；不能包含点号、路径字符或 Windows 保留名")
+    return identifier
+
+
+def generation_canvas(width: int, height: int) -> None:
+    if width <= 0 or height <= 0 or width % 16 or height % 16:
+        raise ValueError(f"生成画布宽高必须是 16 的正整数倍（当前 {width}×{height}），请先调整分镜画布和几何")
 
 
 def content_hash(project_dir: str, page_id: str, *options: str) -> str:
@@ -98,7 +120,12 @@ def dialogue_override(dialogue_mode: str) -> str | None:
 
 def info(page: Any, characters: dict) -> str:
     return dumps(
-        {"version": 1, "page": page.to_dict(), "characters": {k: v.to_dict() for k, v in characters.items()}}
+        {
+            "version": 1,
+            "page": page.to_dict(),
+            "project": {"lora_policy": page.lora_policy},
+            "characters": {k: v.to_dict() for k, v in characters.items()},
+        }
     )
 
 
@@ -108,7 +135,13 @@ def parse_info(page_info: str) -> tuple[Any, dict]:
     if not isinstance(value, dict) or value.get("version") != 1 or "page" not in value:
         msg = "page_info 无效，请连接载入分镜页的 page_info 输出"
         raise ValueError(msg)
-    return models.Page.from_dict(value["page"]), {
+    page_data = {
+        **value["page"],
+        "lora_policy": value.get("project", {}).get(
+            "lora_policy", value["page"].get("lora_policy", "single")
+        ),
+    }
+    return models.Page.from_dict(page_data), {
         k: models.Character.from_dict(v) for k, v in value.get("characters", {}).items()
     }
 
@@ -131,27 +164,20 @@ def select_panel(page: Any, selector: str) -> Any:
     raise ValueError(msg)
 
 
-def single_prompt(panel: Any, characters: dict) -> str:
-    compiler = core("compiler")
-    caption = (panel.caption_en or "").strip()
-    if not caption:
-        description = panel.description.strip()
-        if not description:
-            msg = f"格子 {panel.id} 缺少画面描述，请填写 caption_en 或 description"
-            raise ValueError(msg)
-        shot = compiler.SHOT_PHRASES.get(panel.shot, panel.shot.replace("_", "-"))
-        angle = compiler.ANGLE_PHRASES.get(panel.angle, panel.angle.replace("_", "-"))
-        caption = f"{shot}, {angle}: {description}"
-    ids = list(dict.fromkeys([*panel.character_ids, *(f.character_id for f in panel.figures)]))
-    return ". ".join(
-        [
-            (
-                "A single manga illustration, one frame, no panel borders, "
-                "no gutters, no text, no speech bubbles"
-            ),
-            caption,
-            *(compiler.character_caption(identifier, characters, language="en") for identifier in ids),
-        ]
+def single_prompt(panel: Any, characters: dict, page: Any = None) -> str:
+    if page is None:
+        page = core("models").Page.from_dict({"id": "single", "panels": [panel.to_dict()]})
+    captions = core("captions")
+    caption = captions.panel_caption(panel, page, characters)
+    # Strip only the compiler-owned page location. Keep custom and preserved text verbatim.
+    if not captions.custom_caption_enabled(panel, page) and captions.preserved_caption(panel, page) is None:
+        for language, separator in (("en", ": "), ("zh", "：")):
+            position = core("panel_positions").panel_positions(page, language).get(panel.id)
+            if position:
+                caption = caption.removeprefix(position + separator)
+    return (
+        "A single manga illustration, one frame, no panel borders, "
+        f"no gutters, no text, no speech bubbles. {caption}"
     )
 
 

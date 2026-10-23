@@ -16,7 +16,7 @@ from .bundles import (
     parse_bundle,
     store_upload,
 )
-from .core import content_hash, core, dumps, inside, load, page_path
+from .core import content_hash, core, dumps, editable_id, inside, load, page_path
 from .importing import draft_image, inspect_payload, moss_dimensions, moss_page, png_base64
 
 _WORKSPACE_LOCK = threading.Lock()
@@ -83,7 +83,7 @@ def inspect_link(
     payload = dumps(
         {
             "format": BUNDLE_FORMAT,
-            "project": {},
+            "project": {"lora_policy": page.lora_policy},
             "page": page.to_dict(),
             "characters": {key: card.to_dict() for key, card in cards.items()},
         }
@@ -111,6 +111,10 @@ def _materialize(filename: str, *, convert_moss: bool, width: int, height: int) 
     root = workspace_root(filename)
     existing = workspace_bundle(filename)
     if existing is not None:
+        editable_id(existing["page"]["id"])
+        for key, card in existing["characters"].items():
+            editable_id(key)
+            editable_id(card["id"])
         return root, existing["page"]["id"]
     if root.exists():
         msg = "同名目录已存在且不是本分镜的工作副本，请重命名文件后重新导入"
@@ -127,6 +131,10 @@ def _materialize(filename: str, *, convert_moss: bool, width: int, height: int) 
         settings = raw.get("project", {}) if raw.get("format") == BUNDLE_FORMAT else {}
     if not page.id:
         page.page_id = "imported"
+    editable_id(page.id)
+    for key, card in cards.items():
+        editable_id(key)
+        editable_id(card.id)
     destination = page_path(root, page.id)
     card_paths = {key: page_path(root, key) for key in cards}  # validate ids before writing anything
     io = core("io")
@@ -149,10 +157,11 @@ def _materialize(filename: str, *, convert_moss: bool, width: int, height: int) 
 def export_copy(filename: str) -> str:
     bundle = workspace_bundle(filename)
     if bundle is None:
-        page, cards, _, _ = parse_bundle(decode_json(file_path(filename).read_bytes()))
+        raw = decode_json(file_path(filename).read_bytes())
+        page, cards, _, _ = parse_bundle(raw)
         bundle = {
             "format": BUNDLE_FORMAT,
-            "project": {},
+            "project": raw.get("project", {}) if raw.get("format") == BUNDLE_FORMAT else {},
             "page": page.to_dict(),
             "characters": {key: card.to_dict() for key, card in cards.items()},
         }

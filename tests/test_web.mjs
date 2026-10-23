@@ -28,6 +28,7 @@ class Element {
     }
     async click() { this.clicked = true; if (this.tag === "a") calls.push({ download: this.download }); return this.onclick?.(); }
     focus() { document.activeElement = this; }
+    select() { this.selected = true; }
     remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); this.parentNode = null; }
     contains(element) { return this === element || this.children.some(child => child.contains(element)); }
     get childElementCount() { return this.children.length; }
@@ -432,4 +433,100 @@ test("automatic failures stay inline, explicit duplicate upload errors only toas
     await node._sodaUploadInput.onchange(); await node._sodaUploadInput.onchange();
     assert.equal(toasts.length, count + 1);
     failed = false;
+});
+
+function delayedApi(match) {
+    const original = globalThis.__sodaTest.api.fetchApi;
+    const pending = [];
+    globalThis.__sodaTest.api.fetchApi = async (path, options) => {
+        if (match(path, options)) return new Promise(resolve => pending.push({ path, options,
+            resolve: value => resolve({ ok: true, async json() { return value; } }) }));
+        return original(path, options);
+    };
+    return { pending, restore: () => { globalThis.__sodaTest.api.fetchApi = original; } };
+}
+
+test("review #4 connection during request releases preview pending and keeps polling", async () => {
+    const Type = await nodeType("SodaStoryboardPreview", { project_dir: "review-project", page_id: "p1", page_info: "" });
+    const node = create(Type);
+    const api = delayedApi(path => path.includes("/link?"));
+    try {
+        const first = node._sodaRefresh(); await settle();
+        node.onConnectionsChange(); await settle();
+        api.pending[0].resolve(metadata("old")); await first; await settle();
+        for (const pending of api.pending.slice(1)) pending.resolve(metadata("new"));
+        await settle(); node._sodaTimer.fn(); await settle();
+        assert(api.pending.length >= 2, "preview polling must resume after connection event");
+        api.pending.at(-1).resolve(metadata("newest")); await settle();
+        assert.equal(node._sodaPending, null);
+    } finally { api.restore(); node.onRemoved(); }
+});
+
+test("review #5 choices discard responses from old upstream", async () => {
+    const a = create(ImportNode), b = create(ImportNode);
+    let release;
+    a._sodaMeta = null; a._sodaRefresh = () => new Promise(resolve => { release = resolve; });
+    b._sodaMeta = metadata("b");
+    const Type = await nodeType("SodaCharacterMask", { panel: "1", character_id: "", page_info: "" });
+    const node = create(Type); node.inputs = [{ name: "page_info", link: 99001 }];
+    graph.links[99001] = { origin_id: a.id };
+    const old = node._sodaRefreshChoices(); await settle();
+    node.inputs[0].link = 99002; graph.links[99002] = { origin_id: b.id };
+    await node._sodaRefreshChoices();
+    release({ page_info: JSON.stringify({ page: { panels: [{ id: "OLD", order: 1, character_ids: ["OLD"] }] } }) });
+    await old;
+    assert.equal(field(node, "panel").value, "right");
+    assert.equal(field(node, "character_id").value, "a");
+    node.onRemoved(); a.onRemoved(); b.onRemoved();
+});
+
+test("review #6 latest upload wins when earlier response arrives last", async () => {
+    const node = create(ImportNode);
+    const api = delayedApi(path => path.includes("/upload?"));
+    try {
+        node._sodaUploadInput.files = [new File(["{}"], "older.json")];
+        const old = node._sodaUploadInput.onchange(); await settle();
+        node._sodaUploadInput.files = [new File(["{}"], "newer.json")];
+        const latest = node._sodaUploadInput.onchange(); await settle();
+        api.pending[1].resolve({ name: "newer.json" }); await latest;
+        api.pending[0].resolve({ name: "older.json" }); await old;
+        assert.equal(field(node, "filename").value, "newer.json");
+        assert(field(node, "filename").options.values.includes("older.json"));
+    } finally { api.restore(); node.onRemoved(); }
+});
+
+test("review #7 sidebar ignores page lists from removed render", async () => {
+    const container = new Element("section"); sidebar.render(container);
+    const api = delayedApi(path => path.includes("/pages?"));
+    try {
+        const directory = container.children[0].children[0];
+        directory.value = "OLD-PROJECT"; directory.onchange(); await settle();
+        const node = create(ImportNode); field(node, "filename").value = "new-project.json";
+        await node._sodaRefresh(); await node._sodaEdit(); await settle();
+        for (const pending of api.pending.filter(item => !item.path.includes("OLD-PROJECT"))) pending.resolve({ pages: [{ id: "p1" }] });
+        await settle();
+        for (const pending of api.pending.filter(item => item.path.includes("OLD-PROJECT"))) pending.resolve({ pages: [{ id: "OLD-PAGE" }] });
+        await settle(); sidebar.render(container);
+        assert.notEqual(container.children[0].children[0].value, "OLD-PROJECT");
+        node.onRemoved();
+    } finally { api.restore(); }
+});
+
+test("review #12 copy falls back when Clipboard API is missing or rejected", async () => {
+    const saved = navigator.clipboard;
+    const node = create(ImportNode); field(node, "filename").value = "copy.json"; await node._sodaRefresh();
+    const focus = new Element("button"); focus.focus();
+    let copied = 0; document.execCommand = command => { assert.equal(command, "copy"); copied++; return true; };
+    try {
+        for (const clipboard of [undefined, { writeText: async () => { throw new Error("denied"); } }]) {
+            Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+            await node._sodaView.copy.onclick();
+            assert.equal(document.activeElement, focus);
+        }
+        assert.equal(copied, 2);
+        const before = toasts.length; document.execCommand = () => false;
+        await node._sodaView.copy.onclick();
+        assert.equal(toasts.length, before + 1);
+        assert.equal(node._sodaView.copy.disabled, false);
+    } finally { Object.defineProperty(navigator, "clipboard", { value: saved, configurable: true }); node.onRemoved(); }
 });
