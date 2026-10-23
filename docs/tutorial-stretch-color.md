@@ -13,7 +13,7 @@
 Windows 便携版可以在 `ComfyUI_windows_portable` 根目录执行：
 
 ```powershell
-.\python_embeded\python.exe -m pip install --upgrade "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.1/soda_storyboard-0.4.1-py3-none-any.whl"
+.\python_embeded\python.exe -m pip install --upgrade soda-storyboard
 ```
 
 下载本仓库后，本章主要用到以下文件。模型需按安装说明另外准备。

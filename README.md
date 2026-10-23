@@ -93,29 +93,29 @@ soda-storyboard export-bundle examples/stretch-color/pages/stretch-color.json --
 
 ### Windows 便携版
 
-将本仓库放入 `ComfyUI/custom_nodes/ComfyUI-Soda-Storyboard`。在 `ComfyUI_windows_portable` 根目录，用便携版自己的 Python 安装 wheel，再重启 ComfyUI：
+将本仓库放入 `ComfyUI/custom_nodes/ComfyUI-Soda-Storyboard`。在 `ComfyUI_windows_portable` 根目录，用便携版自己的 Python 从 PyPI 安装核心库，再重启 ComfyUI：
 
 ```powershell
-.\python_embeded\python.exe -m pip install --upgrade "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.1/soda_storyboard-0.4.1-py3-none-any.whl"
+.\python_embeded\python.exe -m pip install --upgrade soda-storyboard
 ```
 
-也可以安装本仓库的依赖文件，其中指向同一个已发布的 0.4.1 wheel：
+也可以安装本仓库的依赖文件（内容就是 `soda-storyboard>=0.4.4`）：
 
 ```powershell
 .\python_embeded\python.exe -m pip install -r .\ComfyUI\custom_nodes\ComfyUI-Soda-Storyboard\requirements.txt
 ```
 
-便携版用 wheel 可以省掉源码构建这一步。它的内嵌 Python 有 `._pth` 隔离设置，从 Git 安装源码包时可能找不到构建后端 `uv_build`。如果遇到 `BackendUnavailable: Cannot import 'uv_build'`，检查是否装成了 Git 源码依赖，改用上面的 wheel 即可。
+核心库从 PyPI 安装的是已构建好的 wheel，不需要在便携版里构建源码。如果遇到 `BackendUnavailable: Cannot import 'uv_build'`，说明装成了 Git 源码依赖，改用上面的命令即可。
 
 ### 普通 Python 环境与 Manager
 
-在 ComfyUI 使用的虚拟环境中安装核心 wheel，再重启：
+在 ComfyUI 使用的虚拟环境中安装核心库，再重启：
 
 ```powershell
-python -m pip install --upgrade "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.1/soda_storyboard-0.4.1-py3-none-any.whl"
+python -m pip install --upgrade soda-storyboard
 ```
 
-也可在 ComfyUI Manager 中用 [本仓库 Git URL](https://github.com/cOkieeman/ComfyUI-Soda-Storyboard) 安装。Manager 通常会处理 `requirements.txt`；若核心库缺失或仍是旧版，再按上面的对应环境安装或升级 wheel。Registry 发布和 Manager 索引收录是另外的步骤。
+也可以在 ComfyUI Manager 里搜索 **Soda Storyboard** 安装（Comfy Registry 节点 id：`comfyui-soda-storyboard`），或者用 `comfy node install comfyui-soda-storyboard`。Manager 会按 `requirements.txt` 自动从 PyPI 安装核心库；如果核心库缺失或版本太旧，再按上面的命令升级。
 
 torch、numpy 使用 ComfyUI 环境已有的版本；Pillow 由核心库提供。缺少核心库时，节点仍会注册，运行需要它的节点时会给出安装提示。低于 0.4.1 时，控制台会提示升级：0.4.1 改了译文是否过期的判断方式，用旧版读取新导出的分镜包会把译文误判为过期。
 

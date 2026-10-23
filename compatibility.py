@@ -7,10 +7,7 @@ import logging
 from importlib import metadata
 
 MIN_CORE_VERSION = "0.4.1"
-CORE_WHEEL_URL = (
-    "https://github.com/cOkieeman/soda-storyboard/releases/download/v0.4.1/"
-    "soda_storyboard-0.4.1-py3-none-any.whl"
-)
+CORE_REQUIREMENT = "soda-storyboard>=0.4.4"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -32,5 +29,5 @@ def check_core_version() -> None:
             '.\\python_embeded\\python.exe -m pip install --upgrade "%s"; 然后重启 ComfyUI',
             installed,
             MIN_CORE_VERSION,
-            CORE_WHEEL_URL,
+            CORE_REQUIREMENT,
         )
